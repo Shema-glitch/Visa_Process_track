@@ -27,7 +27,7 @@ interface Requirement {
   phase: number;
   status: 'pending' | 'in_progress' | 'completed';
   dependency_id: string | null;
-  gdrive_file_id: string | null;
+  requires_dual_language: boolean;
   user_id: string;
 }
 
@@ -74,12 +74,6 @@ export function Dashboard() {
   const handleStatusChange = async (id: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
     setRequirements((prev) =>
       prev.map((req) => (req.id === id ? { ...req, status: newStatus } : req))
-    );
-  };
-
-  const handleFileUpload = (id: string, fileId: string) => {
-    setRequirements((prev) =>
-      prev.map((req) => (req.id === id ? { ...req, gdrive_file_id: fileId } : req))
     );
   };
 
@@ -290,7 +284,6 @@ export function Dashboard() {
           <RoadmapPipeline
             requirements={requirements}
             onStatusChange={handleStatusChange}
-            onFileUpload={handleFileUpload}
             onNameChange={handleNameChange}
             onDelete={handleDelete}
           />

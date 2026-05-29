@@ -54,6 +54,10 @@ function AppContent() {
       phase: index < 3 ? 1 : index < 6 ? 2 : index < 9 ? 3 : 4,
       status: 'pending' as const,
       dependency_id: null,
+      requires_dual_language: req.name.toLowerCase().includes('birth certificate') ||
+                                req.name.toLowerCase().includes('criminal record') ||
+                                req.name.toLowerCase().includes('national id') ||
+                                req.name.toLowerCase().includes('identity card'),
     }));
 
     const { error } = await supabase

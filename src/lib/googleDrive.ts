@@ -39,10 +39,14 @@ export async function handleGoogleCallback(code: string) {
   }
 }
 
-export async function uploadFileToGoogleDrive(file: File) {
+export async function uploadFileToGoogleDrive(
+  file: File,
+  languageTag: 'English' | 'Kinyarwanda' | 'Universal' = 'Universal'
+) {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('languageTag', languageTag);
 
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-to-drive`, {
       method: 'POST',

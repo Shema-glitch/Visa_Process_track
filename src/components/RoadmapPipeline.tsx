@@ -9,13 +9,12 @@ interface Requirement {
   phase: number;
   status: 'pending' | 'in_progress' | 'completed';
   dependency_id?: string;
-  gdrive_file_id?: string;
+  requires_dual_language: boolean;
 }
 
 interface RoadmapPipelineProps {
   requirements: Requirement[];
   onStatusChange: (id: string, status: 'pending' | 'in_progress' | 'completed') => void;
-  onFileUpload: (id: string, fileId: string) => void;
   onNameChange?: (id: string, newName: string) => void;
   onDelete?: (id: string) => void;
 }
@@ -30,7 +29,6 @@ const PHASE_INFO = {
 export function RoadmapPipeline({
   requirements,
   onStatusChange,
-  onFileUpload,
   onNameChange,
   onDelete,
 }: RoadmapPipelineProps) {
@@ -89,9 +87,8 @@ export function RoadmapPipeline({
                 status={req.status}
                 isLocked={isRequirementLocked(req)}
                 dependencyName={getDependencyName(req)}
-                gdriveFileId={req.gdrive_file_id}
+                requiresDualLanguage={req.requires_dual_language}
                 onStatusChange={onStatusChange}
-                onFileUpload={onFileUpload}
                 onNameChange={onNameChange}
                 onDelete={onDelete}
               />
