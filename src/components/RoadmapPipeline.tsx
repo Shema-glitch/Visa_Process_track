@@ -1,5 +1,7 @@
 import React from 'react';
 import { ChecklistItem } from './ChecklistItem';
+import { Badge } from './ui/badge';
+import { Separator } from './ui/separator';
 
 interface Requirement {
   id: string;
@@ -19,10 +21,10 @@ interface RoadmapPipelineProps {
 }
 
 const PHASE_INFO = {
-  1: { title: 'Phase 1: DIY Documents', color: 'bg-blue-100 text-blue-900' },
-  2: { title: 'Phase 2: Bank & Notary', color: 'bg-purple-100 text-purple-900' },
-  3: { title: 'Phase 3: University', color: 'bg-amber-100 text-amber-900' },
-  4: { title: 'Phase 4: Embassy', color: 'bg-green-100 text-green-900' },
+  1: { title: 'Phase 1: DIY Documents', variant: 'default' as const },
+  2: { title: 'Phase 2: Bank & Notary', variant: 'secondary' as const },
+  3: { title: 'Phase 3: University', variant: 'warning' as const },
+  4: { title: 'Phase 4: Embassy', variant: 'success' as const },
 };
 
 export function RoadmapPipeline({
@@ -67,11 +69,17 @@ export function RoadmapPipeline({
     <div className="space-y-8">
       {[1, 2, 3, 4].map((phase) => (
         <div key={phase}>
-          <div className={`px-4 py-2 rounded-lg font-semibold mb-4 inline-block ${PHASE_INFO[phase as keyof typeof PHASE_INFO].color}`}>
-            {PHASE_INFO[phase as keyof typeof PHASE_INFO].title}
+          <div className="flex items-center gap-3 mb-4">
+            <Badge
+              variant={PHASE_INFO[phase as keyof typeof PHASE_INFO].variant}
+              className="text-base px-4 py-2"
+            >
+              {PHASE_INFO[phase as keyof typeof PHASE_INFO].title}
+            </Badge>
+            <Separator className="flex-1" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {groupedByPhase[phase]?.map((req) => (
               <ChecklistItem
                 key={req.id}

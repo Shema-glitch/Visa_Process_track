@@ -161,12 +161,12 @@ export function ChecklistItem({
             <div className="flex-1 min-w-0">
               {isEditing ? (
                 <div className="flex gap-2 items-center">
-                  <input
+                  <Input
                     type="text"
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                    className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="flex-1"
                     autoFocus
                   />
                   <Button size="sm" onClick={handleSaveEdit} className="px-2">
