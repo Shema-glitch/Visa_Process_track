@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { PDFViewer } from './PDFViewer';
 import { useOnMobile } from '../hooks/useOnMobile';
+import { cn } from '../lib/utils';
 
 interface FileAttachment {
   id: string;
@@ -158,19 +159,6 @@ export function ChecklistItem({
     setIsEditing(false);
   };
 
-  const phaseConfig = {
-    1: { label: 'Phase 1: DIY Documents', color: 'bg-blue-50 border-blue-300' },
-    2: { label: 'Phase 2: Bank & Notary', color: 'bg-amber-50 border-amber-300' },
-    3: { label: 'Phase 3: University', color: 'bg-emerald-50 border-emerald-300' },
-    4: { label: 'Phase 4: Embassy', color: 'bg-purple-50 border-purple-300' },
-  };
-
-  const statusConfig = {
-    pending: { icon: null, color: 'text-slate-400', badge: 'secondary' as const },
-    in_progress: { icon: Clock, color: 'text-blue-600', badge: 'default' as const },
-    completed: { icon: CheckCircle2, color: 'text-green-600', badge: 'success' as const },
-  };
-
   const getAttachment = (languageTag: string) => {
     return attachments.find(a => a.language_tag === languageTag);
   };
@@ -182,13 +170,13 @@ export function ChecklistItem({
 
     if (attachment) {
       return (
-        <div className="border border-solid rounded-lg bg-green-50 border-green-300 p-3">
+        <div className="border rounded-lg p-3 bg-muted">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <FileText className="w-4 h-4 text-green-700 flex-shrink-0" />
-              <span className="text-sm font-medium text-green-900 truncate">{attachment.filename}</span>
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm font-medium truncate">{attachment.filename}</span>
             </div>
-            <Badge variant={languageTag === 'English' ? 'default' : languageTag === 'Kinyarwanda' ? 'secondary' : 'success'} className="ml-2">
+            <Badge variant={languageTag === 'English' ? 'default' : languageTag === 'Kinyarwanda' ? 'secondary' : 'outline'} className="ml-2">
               {languageTag === 'English' ? '🇬🇧 English' : languageTag === 'Kinyarwanda' ? '🇷🇼 Kinyarwanda' : 'Universal'}
             </Badge>
           </div>
@@ -211,7 +199,6 @@ export function ChecklistItem({
               size="sm"
               variant="ghost"
               onClick={() => handleRemoveFile(attachment)}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
             >
               <X className="w-3 h-3" />
             </Button>
@@ -226,11 +213,12 @@ export function ChecklistItem({
         onDragLeave={(e) => handleDrag(e, languageTag)}
         onDragOver={(e) => handleDrag(e, languageTag)}
         onDrop={(e) => handleDrop(e, languageTag)}
-        className={`block border-2 border-dashed rounded-lg cursor-pointer transition-all ${
+        className={cn(
+          "block border-2 border-dashed rounded-lg cursor-pointer transition-colors",
           isDragActive
-            ? 'border-blue-500 bg-blue-50 scale-[1.02]'
-            : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
-        }`}
+            ? "border-primary bg-accent"
+            : "border-border bg-background hover:border-muted-foreground hover:bg-muted/50"
+        )}
       >
         <input
           type="file"
@@ -240,8 +228,8 @@ export function ChecklistItem({
           className="hidden"
         />
         <div className="flex flex-col items-center justify-center py-3 px-3">
-          <Upload className={`w-4 h-4 mb-1 ${isUploading ? 'animate-pulse text-blue-600' : 'text-slate-700'}`} />
-          <span className="text-xs font-medium text-slate-700 text-center">
+          <Upload className={cn("w-4 h-4 mb-1", isUploading && "animate-pulse")} />
+          <span className="text-xs font-medium text-center">
             {isUploading ? 'Uploading...' : label}
           </span>
         </div>
@@ -251,15 +239,15 @@ export function ChecklistItem({
 
   if (isLocked) {
     return (
-      <Card className="opacity-60 bg-slate-50 border-slate-200">
-        <CardContent className="p-4 sm:p-6">
+      <Card className="opacity-50 pointer-events-none">
+        <CardContent className="p-6">
           <div className="flex items-start gap-3">
-            <Lock className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
+            <Lock className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-slate-600 truncate">{name}</h3>
+              <h3 className="font-semibold text-foreground truncate">{name}</h3>
               <div className="flex items-center gap-2 mt-2">
-                <AlertCircle className="w-3 h-3 text-amber-600" />
-                <p className="text-xs text-amber-700">
+                <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
                   Locked until "{dependencyName}" is completed
                 </p>
               </div>
@@ -272,19 +260,19 @@ export function ChecklistItem({
 
   return (
     <>
-      <Card className={`transition-all hover:shadow-md ${phaseConfig[phase as keyof typeof phaseConfig].color}`}>
+      <Card className="transition-colors hover:bg-accent/50">
         <CardHeader className="pb-3 sm:pb-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <div className="mt-0.5 flex-shrink-0">
                 {(attachments.length > 0 || status === 'completed') && (
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
                 )}
                 {status === 'in_progress' && (
-                  <Clock className="w-5 h-5 text-blue-600 animate-pulse" />
+                  <Clock className="w-5 h-5 text-muted-foreground animate-pulse" />
                 )}
                 {status === 'pending' && attachments.length === 0 && (
-                  <div className="w-5 h-5 rounded-full border-2 border-slate-300 bg-white" />
+                  <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />
                 )}
               </div>
 
@@ -309,7 +297,7 @@ export function ChecklistItem({
                 ) : (
                   <>
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-base sm:text-lg text-slate-900 truncate">
+                      <CardTitle className="text-sm sm:text-base font-medium text-foreground truncate">
                         {name}
                       </CardTitle>
                       {isMandatory && (
@@ -318,8 +306,8 @@ export function ChecklistItem({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-slate-600 mt-1">
-                      {phaseConfig[phase as keyof typeof phaseConfig].label}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Phase {phase}
                     </p>
                   </>
                 )}
@@ -328,7 +316,7 @@ export function ChecklistItem({
 
             <div className="flex items-center gap-1 flex-shrink-0">
               {attachments.length > 0 && (
-                <Badge variant="success" className="gap-1">
+                <Badge variant="secondary" className="gap-1">
                   <Check className="w-3 h-3" />
                   {!isMobile && <span>{attachments.length} file{attachments.length > 1 ? 's' : ''}</span>}
                 </Badge>
@@ -341,7 +329,7 @@ export function ChecklistItem({
                   onClick={() => setIsEditing(true)}
                   className="h-8 w-8"
                 >
-                  <Edit2 className="w-4 h-4 text-slate-600" />
+                  <Edit2 className="w-4 h-4" />
                 </Button>
               )}
 
@@ -354,9 +342,9 @@ export function ChecklistItem({
                       onDelete(id);
                     }
                   }}
-                  className="h-8 w-8 hover:bg-red-50"
+                  className="h-8 w-8"
                 >
-                  <Trash2 className="w-4 h-4 text-red-600" />
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -385,7 +373,7 @@ export function ChecklistItem({
                 </Button>
                 <Button
                   size="sm"
-                  variant={status === 'completed' ? 'success' : 'outline'}
+                  variant={status === 'completed' ? 'default' : 'outline'}
                   onClick={() => handleStatusChange('completed')}
                   className="flex-1 min-w-[80px]"
                 >

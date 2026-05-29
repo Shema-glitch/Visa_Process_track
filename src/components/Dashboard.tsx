@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, Clock, AlertCircle, LayoutDashboard, Settings, HelpCircle } from 'lucide-react';
+import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, Clock, AlertCircle, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { initiateGoogleOAuth, isGoogleDriveConnected } from '../lib/googleDrive';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Separator } from './ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 interface Requirement {
   id: string;
@@ -122,6 +129,8 @@ export function Dashboard() {
           phase: parseInt(newReqPhase),
           status: 'pending',
           dependency_id: null,
+          requires_dual_language: newReqName.toLowerCase().includes('birth certificate') ||
+                                    newReqName.toLowerCase().includes('criminal record'),
         })
         .select()
         .single();
@@ -154,132 +163,115 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Premium Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
-            {/* Logo & Title */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="p-2 sm:p-2.5 bg-gradient-to-br from-slate-900 to-slate-700 rounded-xl shadow-lg">
-                <Folder className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-                  Visa Readiness Hub
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">
-                  Document Tracker & Backup System
-                </p>
-              </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b bg-card">
+        <div className="container flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <Folder className="w-5 h-5" />
             </div>
+            <div>
+              <h1 className="text-lg font-semibold">Visa Readiness Hub</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Document Tracker
+              </p>
+            </div>
+          </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {isConnected ? (
-                <Badge variant="success" className="gap-1.5 px-3 py-1.5 text-sm hidden sm:flex">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Drive Connected
-                </Badge>
-              ) : (
-                <Button
-                  onClick={() => initiateGoogleOAuth()}
-                  size="sm"
-                  variant="premium"
-                  className="gap-2 shadow-md"
-                >
-                  <Cloud className="w-4 h-4" />
-                  <span className="hidden sm:inline">Connect Drive</span>
-                  <span className="sm:hidden">Drive</span>
-                </Button>
-              )}
-
+          <div className="flex items-center gap-2">
+            {isConnected ? (
+              <Badge variant="secondary" className="gap-1.5">
+                <CheckCircle2 className="w-3 h-3" />
+                <span className="hidden sm:inline">Connected</span>
+              </Badge>
+            ) : (
               <Button
-                onClick={handleSync}
-                variant="ghost"
-                size="sm"
-                className="gap-2"
-                disabled={syncing}
-              >
-                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              </Button>
-
-              <Button
-                onClick={() => signOut()}
-                variant="outline"
+                onClick={() => initiateGoogleOAuth()}
                 size="sm"
                 className="gap-2"
               >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <Cloud className="w-4 h-4" />
+                <span className="hidden sm:inline">Connect Drive</span>
+                <span className="sm:hidden">Drive</span>
               </Button>
-            </div>
+            )}
+
+            <Button
+              onClick={handleSync}
+              variant="ghost"
+              size="icon"
+              disabled={syncing}
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            </Button>
+
+            <Button
+              onClick={() => signOut()}
+              variant="ghost"
+              size="icon"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
-        {/* Progress Overview Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Main Progress Card */}
-          <Card className="sm:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0 shadow-xl">
-            <CardHeader>
-              <CardDescription className="text-slate-300 text-sm sm:text-base">
-                Overall Progress
-              </CardDescription>
-              <CardTitle className="text-3xl sm:text-4xl font-bold">
-                {completedCount}/{totalCount}
-              </CardTitle>
+      <main className="container px-4 py-6">
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card className="sm:col-span-2 lg:col-span-1">
+            <CardHeader className="pb-3">
+              <CardDescription>Overall Progress</CardDescription>
+              <CardTitle className="text-3xl">{progressPercent}%</CardTitle>
             </CardHeader>
             <CardContent>
-              <Progress value={progressPercent} className="h-3 sm:h-4 bg-slate-700" />
-              <p className="text-sm sm:text-base text-slate-300 mt-2">
-                {progressPercent}% Complete
-              </p>
+              <Progress value={progressPercent} />
             </CardContent>
           </Card>
 
-          {/* Status Breakdown Cards */}
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <div>
-                  <p className="text-2xl sm:text-3xl font-bold text-slate-900">{completedCount}</p>
-                  <p className="text-xs sm:text-sm text-slate-600">Completed</p>
-                </div>
-              </div>
-            </CardContent>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>Completed</CardDescription>
+              <CardTitle className="text-2xl">{completedCount}</CardTitle>
+            </CardHeader>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-blue-600" />
-                <div>
-                  <p className="text-2xl sm:text-3xl font-bold text-slate-900">{inProgressCount}</p>
-                  <p className="text-xs sm:text-sm text-slate-600">In Progress</p>
-                </div>
-              </div>
-            </CardContent>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>In Progress</CardDescription>
+              <CardTitle className="text-2xl">{inProgressCount}</CardTitle>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>Pending</CardDescription>
+              <CardTitle className="text-2xl">{pendingCount}</CardTitle>
+            </CardHeader>
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-6 sm:mb-8">
-          <Button
-            onClick={() => setShowAddDialog(true)}
-            variant="premium"
-            size="lg"
-            className="gap-2 w-full sm:w-auto shadow-lg"
-          >
-            <Plus className="w-5 h-5" />
-            Add New Document
-          </Button>
-        </div>
+        {/* Add Requirement */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Requirements</h2>
+                <p className="text-sm text-muted-foreground">
+                  {totalCount} total requirements
+                </p>
+              </div>
+              <Button onClick={() => setShowAddDialog(true)} size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Requirement
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Roadmap Pipeline */}
+        {/* Roadmap */}
         {requirements.length > 0 ? (
           <RoadmapPipeline
             requirements={requirements}
@@ -289,33 +281,30 @@ export function Dashboard() {
           />
         ) : (
           <Card className="border-dashed">
-            <CardContent className="py-12 sm:py-16 text-center">
-              <div className="max-w-md mx-auto">
-                <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Documents Yet</h3>
-                <p className="text-slate-600 mb-4">
-                  Start tracking your visa requirements by adding your first document.
-                </p>
-                <Button onClick={() => setShowAddDialog(true)} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Your First Document
-                </Button>
-              </div>
+            <CardContent className="py-16 text-center">
+              <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Documents Yet</h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                Start tracking your visa requirements by adding your first document.
+              </p>
+              <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add First Requirement
+              </Button>
             </CardContent>
           </Card>
         )}
       </main>
 
-      {/* Add Requirement Dialog */}
+      {/* Add Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Document</DialogTitle>
+            <DialogTitle>Add Requirement</DialogTitle>
             <DialogDescription>
-              Add a new requirement to track for your visa application
+              Add a new document requirement to track
             </DialogDescription>
           </DialogHeader>
-
           <form onSubmit={handleAddRequirement} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Document Name</Label>
@@ -323,11 +312,10 @@ export function Dashboard() {
                 id="name"
                 value={newReqName}
                 onChange={(e) => setNewReqName(e.target.value)}
-                placeholder="e.g., Passport Copy"
+                placeholder="e.g., Birth Certificate"
                 required
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="phase">Phase</Label>
               <Select value={newReqPhase} onValueChange={setNewReqPhase}>
@@ -342,14 +330,15 @@ export function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Add Document</Button>
-            </DialogFooter>
           </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddRequirement}>
+              Add Requirement
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

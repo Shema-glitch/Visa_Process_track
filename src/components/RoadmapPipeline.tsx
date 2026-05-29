@@ -2,6 +2,7 @@ import React from 'react';
 import { ChecklistItem } from './ChecklistItem';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
+import { cn } from '../lib/utils';
 
 interface Requirement {
   id: string;
@@ -20,10 +21,10 @@ interface RoadmapPipelineProps {
 }
 
 const PHASE_INFO = {
-  1: { title: 'Phase 1: DIY Documents', variant: 'default' as const },
-  2: { title: 'Phase 2: Bank & Notary', variant: 'secondary' as const },
-  3: { title: 'Phase 3: University', variant: 'warning' as const },
-  4: { title: 'Phase 4: Embassy', variant: 'success' as const },
+  1: { title: 'Phase 1: DIY Documents' },
+  2: { title: 'Phase 2: Bank & Notary' },
+  3: { title: 'Phase 3: University' },
+  4: { title: 'Phase 4: Embassy' },
 };
 
 export function RoadmapPipeline({
@@ -68,10 +69,7 @@ export function RoadmapPipeline({
       {[1, 2, 3, 4].map((phase) => (
         <div key={phase}>
           <div className="flex items-center gap-3 mb-4">
-            <Badge
-              variant={PHASE_INFO[phase as keyof typeof PHASE_INFO].variant}
-              className="text-base px-4 py-2"
-            >
+            <Badge variant="outline" className="text-sm font-medium">
               {PHASE_INFO[phase as keyof typeof PHASE_INFO].title}
             </Badge>
             <Separator className="flex-1" />
