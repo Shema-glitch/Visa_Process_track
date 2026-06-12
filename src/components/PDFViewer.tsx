@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { X, Download, ExternalLink, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { requirementService } from '@/infrastructure/config/services';
 
 interface PDFViewerProps {
   isOpen: boolean;
@@ -17,47 +18,26 @@ export function PDFViewer({ isOpen, onClose, fileId, fileName, languageTag }: PD
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && fileId) {
-      fetchPDFUrl();
-    }
-    return () => {
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
-      }
-    };
-  }, [isOpen, fileId]);
-
-  const fetchPDFUrl = async () => {
+  const fetchPDFUrl = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-file-url`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ fileId }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to get file URL');
-      }
-
-      const data = await response.json();
-      setPdfUrl(data.url);
+      const url = await requirementService.getDownloadUrl(fileId);
+      setPdfUrl(url);
     } catch (err) {
       console.error('PDF fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load PDF');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fileId]);
+
+  useEffect(() => {
+    if (isOpen && fileId) {
+      fetchPDFUrl();
+    }
+  }, [isOpen, fileId, fetchPDFUrl]);
 
   const handleDownload = () => {
     if (pdfUrl) {
@@ -103,12 +83,12 @@ export function PDFViewer({ isOpen, onClose, fileId, fileName, languageTag }: PD
           </div>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 bg-slate-100 rounded-lg overflow-hidden">
+        <div className="flex-1 min-h-0 bg-muted rounded-lg overflow-hidden">
           {isLoading && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                <p className="text-slate-600">Loading PDF...</p>
+                <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading PDF...</p>
               </div>
             </div>
           )}
@@ -116,7 +96,7 @@ export function PDFViewer({ isOpen, onClose, fileId, fileName, languageTag }: PD
           {error && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <p className="text-red-600 mb-4">{error}</p>
+                <p className="text-destructive mb-4">{error}</p>
                 <Button onClick={fetchPDFUrl}>Try Again</Button>
               </div>
             </div>

@@ -1,9 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface GoogleTokenResponse {
@@ -16,18 +17,47 @@ interface GoogleTokenResponse {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
-      status: 200,
+      status: 204,
       headers: corsHeaders,
     });
   }
 
   try {
-    const { code } = await req.json();
+    const { code, redirectUri } = await req.json();
 
     if (!code) {
       return new Response(
         JSON.stringify({ error: "Missing authorization code" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const supabaseClient = createClient(
+      supabaseUrl,
+      supabaseServiceKey,
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid user session" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -37,9 +67,9 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: Deno.env.get("GOOGLE_CLIENT_ID") || "122661586517-b1notd57qo7vcrgalrl5mllm2fibim10.apps.googleusercontent.com",
-        client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET") || "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",
-        redirect_uri: Deno.env.get("GOOGLE_REDIRECT_URI") || `${Deno.env.get("SUPABASE_URL")}/auth/google/callback`,
+        client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
+        client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
+        redirect_uri: redirectUri || Deno.env.get("GOOGLE_REDIRECT_URI")!,
         grant_type: "authorization_code",
       }).toString(),
     });
@@ -47,57 +77,21 @@ Deno.serve(async (req: Request) => {
     const tokens: GoogleTokenResponse = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
-      throw new Error("Failed to exchange code for tokens");
+      console.error("Google Token Error:", tokens);
+      throw new Error(`Google rejected the exchange: ${JSON.stringify(tokens)}`);
     }
 
-    // Get user from auth header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create Supabase client for database operations
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    const supabaseResponse = await fetch(`${supabaseUrl}/rest/v1/google_drive_auth`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${supabaseServiceKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        user_id: authHeader.split(" ")[1], // Extract user ID from token if available
+    const { error: upsertError } = await supabaseClient
+      .from('google_drive_auth')
+      .upsert({
+        user_id: user.id,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token || null,
-        app_folder_id: null,
-      }),
-    });
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
 
-    if (!supabaseResponse.ok) {
-      // Try to update if exists
-      const updateResponse = await fetch(
-        `${supabaseUrl}/rest/v1/google_drive_auth?user_id=eq.${authHeader}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${supabaseServiceKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token || null,
-          }),
-        }
-      );
-
-      if (!updateResponse.ok) {
-        throw new Error("Failed to store tokens in database");
-      }
+    if (upsertError) {
+      throw new Error("Failed to store tokens in database");
     }
 
     return new Response(

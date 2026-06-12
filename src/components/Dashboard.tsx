@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, Clock, AlertCircle, Edit2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { initiateGoogleOAuth, isGoogleDriveConnected } from '../lib/googleDrive';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, AlertTriangle, Moon, Sun, Settings, FileSearch, Info, ChevronDown } from 'lucide-react';
+import { useAuth } from '@/contexts/useAuth';
+import { useTheme } from '@/components/useTheme';
 import { RoadmapPipeline } from './RoadmapPipeline';
 import { DashboardSkeleton } from './skeletons';
-import { Button } from './ui/button';
-import { Progress } from './ui/progress';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Separator } from './ui/separator';
+import { useRequirements } from '@/hooks/useRequirements';
+import { driveRepo } from '@/infrastructure/config/services';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/ui/empty-state';
+import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -19,101 +22,76 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { RequirementStatus } from '@/domain/entities';
+import { LoginActivityBanner } from '@/components/LoginActivityBanner';
+import { supabase } from '@/lib/supabase';
 
-interface Requirement {
-  id: string;
-  name: string;
-  phase: number;
-  status: 'pending' | 'in_progress' | 'completed';
-  dependency_id: string | null;
-  requires_dual_language: boolean;
-  user_id: string;
-}
+import * as Sentry from "@sentry/react";
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { theme, setTheme } = useTheme();
+  const {
+    requirements,
+    loading,
+    fetchRequirements,
+    updateStatus,
+    updateName,
+    deleteRequirement,
+    addRequirement,
+    resetAll
+  } = useRequirements(user?.id);
+  
   const [isConnected, setIsConnected] = useState(false);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newReqName, setNewReqName] = useState('');
   const [newReqPhase, setNewReqPhase] = useState('1');
   const [syncing, setSyncing] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
-  useEffect(() => {
-    loadRequirements();
-    checkGoogleDriveConnection();
+  const checkGoogleDriveConnection = useCallback(async () => {
+    if (!user) return;
+    try {
+      const result = await driveRepo.verifyConnection();
+      setIsConnected(result.connected);
+      setFolderId(result.folderId || null);
+    } catch (err) {
+      console.error('Connection verification failed:', err);
+      setIsConnected(false);
+    }
   }, [user]);
 
-  const loadRequirements = async () => {
-    if (!user) return;
+  useEffect(() => {
+    fetchRequirements();
+    checkGoogleDriveConnection();
+  }, [user, fetchRequirements, checkGoogleDriveConnection]);
 
-    try {
-      const { data, error } = await supabase
-        .from('requirements')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('phase', { ascending: true })
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setRequirements(data || []);
-    } catch (error) {
-      console.error('Error loading requirements:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkGoogleDriveConnection = async () => {
-    const connected = await isGoogleDriveConnected();
-    setIsConnected(connected);
-  };
-
-  const handleStatusChange = async (id: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
-    setRequirements((prev) =>
-      prev.map((req) => (req.id === id ? { ...req, status: newStatus } : req))
-    );
+  const handleStatusChange = async (id: string, newStatus: RequirementStatus) => {
+    await updateStatus(id, newStatus);
   };
 
   const handleNameChange = async (id: string, newName: string) => {
-    try {
-      const { error } = await supabase
-        .from('requirements')
-        .update({ name: newName, updated_at: new Date() })
-        .eq('id', id);
-
-      if (error) throw error;
-      setRequirements((prev) =>
-        prev.map((req) => (req.id === id ? { ...req, name: newName } : req))
-      );
-    } catch (error) {
-      console.error('Name change error:', error);
-    }
+    await updateName(id, newName);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this requirement?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('requirements')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      setRequirements((prev) => prev.filter((req) => req.id !== id));
-    } catch (error) {
-      console.error('Delete error:', error);
-    }
+    await deleteRequirement(id);
   };
 
   const handleAddRequirement = async (e: React.FormEvent) => {
@@ -121,35 +99,36 @@ export function Dashboard() {
     if (!user || !newReqName.trim()) return;
 
     try {
-      const { data, error } = await supabase
-        .from('requirements')
-        .insert({
-          user_id: user.id,
-          name: newReqName.trim(),
-          phase: parseInt(newReqPhase),
-          status: 'pending',
-          dependency_id: null,
-          requires_dual_language: newReqName.toLowerCase().includes('birth certificate') ||
-                                    newReqName.toLowerCase().includes('criminal record'),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setRequirements((prev) => [...prev, data]);
+      await addRequirement(newReqName, parseInt(newReqPhase));
+      Sentry.metrics.count('requirement_created', 1);
       setNewReqName('');
       setNewReqPhase('1');
       setShowAddDialog(false);
-    } catch (error) {
-      console.error('Add requirement error:', error);
+    } catch (err) {
+      console.error('Add requirement error:', err);
     }
   };
 
   const handleSync = async () => {
     setSyncing(true);
-    await loadRequirements();
+    await fetchRequirements();
     await checkGoogleDriveConnection();
     setSyncing(false);
+  };
+
+  const handleDebugReset = async () => {
+    if (!window.confirm('Are you sure you want to delete all your requirements and restart onboarding?')) return;
+    
+    setSyncing(true);
+    try {
+      await resetAll();
+      window.location.reload();
+    } catch (err) {
+      console.error('Reset error:', err);
+      alert('Failed to reset onboarding');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const completedCount = requirements.filter((r) => r.status === 'completed').length;
@@ -163,180 +142,263 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/10">
+      {/* New device login alert banner */}
+      <LoginActivityBanner />
+
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-card">
+      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
-              <Folder className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Folder className="size-5" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold">Visa Readiness Hub</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">
-                Document Tracker
+              <h1 className="text-lg font-bold tracking-tight">Visa Vault</h1>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground hidden sm:block">
+                Secure document tracker
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {isConnected ? (
-              <Badge variant="secondary" className="gap-1.5">
-                <CheckCircle2 className="w-3 h-3" />
-                <span className="hidden sm:inline">Connected</span>
-              </Badge>
-            ) : (
-              <Button
-                onClick={() => initiateGoogleOAuth()}
-                size="sm"
-                className="gap-2"
-              >
-                <Cloud className="w-4 h-4" />
-                <span className="hidden sm:inline">Connect Drive</span>
-                <span className="sm:hidden">Drive</span>
-              </Button>
-            )}
-
-            <Button
-              onClick={handleSync}
-              variant="ghost"
-              size="icon"
-              disabled={syncing}
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            </Button>
-
-            <Button
-              onClick={() => signOut()}
-              variant="ghost"
-              size="icon"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8 rounded-full hover:bg-muted" title="Settings">
+                  <Settings className="size-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-2">
+                <DropdownMenuItem onClick={handleSync} disabled={syncing} className="rounded-lg gap-2">
+                  <RefreshCw className={cn("size-4", syncing && "animate-spin")} />
+                  <span>Sync Requirements</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="rounded-lg gap-2">
+                  {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+                  <span>Toggle Theme</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDebugReset} className="rounded-lg gap-2 text-destructive focus:text-destructive focus:bg-destructive/10">
+                  <AlertTriangle className="size-4" />
+                  <span>Reset Onboarding</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()} className="rounded-lg gap-2">
+                  <LogOut className="size-4" />
+                  <span>Sign Out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="sm:col-span-2 lg:col-span-1">
+      <main className="container px-4 py-8 max-w-7xl mx-auto space-y-10">
+        <Collapsible open={infoOpen} onOpenChange={setInfoOpen}>
+          <CollapsibleTrigger
+            aria-expanded={infoOpen}
+            aria-controls="chrono-info"
+            className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-0.5"
+          >
+            <Info className="size-3.5" />
+            <span>Strict chronological processing</span>
+            <ChevronDown
+              className={cn('size-3.5 transition-transform duration-200', infoOpen && 'rotate-180')}
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent id="chrono-info">
+            <p className="text-sm text-muted-foreground font-medium mt-2 pl-5 border-l-2 border-border">
+              Documents must be collected in strict chronological order. Locked documents will automatically unlock as you complete the previous steps.
+            </p>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Info Grid: Stats + Storage */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="shadow-sm border-border/50 bg-gradient-to-br from-primary/[0.02] to-transparent flex flex-col justify-center">
             <CardHeader className="pb-3">
-              <CardDescription>Overall Progress</CardDescription>
-              <CardTitle className="text-3xl">{progressPercent}%</CardTitle>
+              <CardDescription className="text-sm font-semibold text-muted-foreground">Overall progress</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Progress value={progressPercent} />
+            <CardContent className="space-y-2">
+              <div className="flex items-center gap-3">
+                <Progress value={progressPercent} className="h-2.5 flex-1 [&>[data-slot=progress-indicator]]:bg-[var(--status-complete)]" />
+                <span className="text-sm font-black tabular-nums text-[var(--status-complete)] w-10 text-right">
+                  {progressPercent}%
+                </span>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-3">
-              <CardDescription>Completed</CardDescription>
-              <CardTitle className="text-2xl">{completedCount}</CardTitle>
+              <CardDescription className="text-sm font-semibold text-muted-foreground">Status breakdown</CardDescription>
             </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 divide-x divide-border/50">
+                <div className="pr-4 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">Completed</p>
+                  <p className="text-3xl font-black" style={{ color: 'var(--status-complete)' }}>{completedCount}</p>
+                </div>
+                <div className="px-4 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">In progress</p>
+                  <p className="text-3xl font-black" style={{ color: 'var(--status-progress)' }}>{inProgressCount}</p>
+                </div>
+                <div className="pl-4 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">Pending</p>
+                  <p className="text-3xl font-black" style={{ color: 'var(--status-pending)' }}>{pendingCount}</p>
+                </div>
+              </div>
+            </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>In Progress</CardDescription>
-              <CardTitle className="text-2xl">{inProgressCount}</CardTitle>
+          <Card className="shadow-sm border-border/50 relative overflow-hidden group">
+            <div className={cn(
+              "absolute inset-0 transition-opacity duration-500",
+              isConnected ? "bg-emerald-500/5 opacity-100" : "bg-primary/5 opacity-50"
+            )} />
+            <CardHeader className="pb-3 relative">
+              <CardDescription className="text-sm font-semibold text-muted-foreground">Cloud storage</CardDescription>
             </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Pending</CardDescription>
-              <CardTitle className="text-2xl">{pendingCount}</CardTitle>
-            </CardHeader>
+            <CardContent className="relative space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-xl transition-colors duration-500",
+                    isConnected ? "bg-emerald-500/10 text-emerald-500" : "bg-primary/10 text-primary"
+                  )}>
+                    <Cloud className="size-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{isConnected ? 'Connected to Drive' : 'Drive disconnected'}</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {isConnected ? 'Your files are securely synced' : 'Documents are stored locally only'}
+                    </p>
+                  </div>
+                </div>
+                {isConnected && (
+                  <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                {isConnected ? (
+                  <>
+                    {folderId && (
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        className="flex-1 font-bold h-9 rounded-lg gap-2"
+                        onClick={() => window.open(`https://drive.google.com/drive/folders/${folderId}`, '_blank')}
+                      >
+                        <Folder className="size-3.5" />
+                        View Archive
+                      </Button>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="font-bold h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground"
+                      onClick={() => driveRepo.initiateAuth()}
+                      title="Reconnect Drive"
+                    >
+                      <RefreshCw className={cn("size-3.5", syncing && "animate-spin")} />
+                    </Button>
+                  </>
+                ) : (
+                  <Button 
+                    onClick={() => driveRepo.initiateAuth()} 
+                    size="sm" 
+                    className="w-full font-bold h-9 rounded-lg gap-2 shadow-lg shadow-primary/10"
+                  >
+                    <Cloud className="size-3.5" />
+                    Connect Google Drive
+                  </Button>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </div>
 
         {/* Add Requirement */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Requirements</h2>
-                <p className="text-sm text-muted-foreground">
-                  {totalCount} total requirements
-                </p>
-              </div>
-              <Button onClick={() => setShowAddDialog(true)} size="sm" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Requirement
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight">Documents</h2>
+            <p className="text-sm font-medium text-muted-foreground">
+              Tracking <span className="text-foreground font-bold">{totalCount}</span> total items
+            </p>
+          </div>
+          <Button onClick={() => setShowAddDialog(true)} size="sm" variant="outline" className="gap-2 rounded-full font-bold border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+            <Plus className="size-4" />
+            Add document
+          </Button>
+        </div>
 
         {/* Roadmap */}
         {requirements.length > 0 ? (
           <RoadmapPipeline
             requirements={requirements}
+            isDriveConnected={isConnected}
             onStatusChange={handleStatusChange}
             onNameChange={handleNameChange}
             onDelete={handleDelete}
           />
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="py-16 text-center">
-              <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Documents Yet</h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-                Start tracking your visa requirements by adding your first document.
-              </p>
-              <Button onClick={() => setShowAddDialog(true)} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add First Requirement
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={FileSearch}
+            title="No documents yet"
+            description="Start tracking your visa requirements by adding your first document. We'll help you through every step of the process."
+            action={{
+              label: "Add first document",
+              onClick: () => setShowAddDialog(true),
+              icon: Plus
+            }}
+          />
         )}
       </main>
 
       {/* Add Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add Requirement</DialogTitle>
-            <DialogDescription>
-              Add a new document requirement to track
+            <DialogTitle className="text-2xl font-bold tracking-tight">Add document</DialogTitle>
+            <DialogDescription className="font-medium">
+              Add a new document requirement to track in your roadmap.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleAddRequirement} className="space-y-4">
+          <form onSubmit={handleAddRequirement} className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Document Name</Label>
+              <Label htmlFor="name" className="text-sm font-bold text-muted-foreground">Document name</Label>
               <Input
                 id="name"
                 value={newReqName}
                 onChange={(e) => setNewReqName(e.target.value)}
-                placeholder="e.g., Birth Certificate"
+                placeholder="e.g., Birth certificate"
+                className="h-11 font-medium focus-visible:ring-primary/50"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phase">Phase</Label>
+              <Label htmlFor="phase" className="text-sm font-bold text-muted-foreground">Phase</Label>
               <Select value={newReqPhase} onValueChange={setNewReqPhase}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11 font-medium focus-visible:ring-primary/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Phase 1: DIY Documents</SelectItem>
-                  <SelectItem value="2">Phase 2: Bank & Notary</SelectItem>
-                  <SelectItem value="3">Phase 3: University</SelectItem>
-                  <SelectItem value="4">Phase 4: Embassy</SelectItem>
+                  <SelectItem value="1" className="font-medium">Phase 1: DIY documents</SelectItem>
+                  <SelectItem value="2" className="font-medium">Phase 2: Bank & notary</SelectItem>
+                  <SelectItem value="3" className="font-medium">Phase 3: University</SelectItem>
+                  <SelectItem value="4" className="font-medium">Phase 4: Embassy</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </form>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setShowAddDialog(false)} className="font-bold">
               Cancel
             </Button>
-            <Button onClick={handleAddRequirement}>
-              Add Requirement
+            <Button onClick={handleAddRequirement} className="font-bold shadow-lg shadow-primary/20">
+              Create document
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -344,3 +406,4 @@ export function Dashboard() {
     </div>
   );
 }
+
