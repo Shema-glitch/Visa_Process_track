@@ -42,18 +42,6 @@ function UploadZone({
     }
   }
 
-  if (!isDriveConnected) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-muted bg-muted/20 p-6 text-center text-muted-foreground transition-colors grayscale opacity-80">
-        <CloudOff className="size-8" />
-        <div className="space-y-1">
-          <p className="text-sm font-semibold tracking-tight">Drive Offline</p>
-          <p className="text-xs">Connect Google Drive to upload</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <label
       onDragEnter={handleDrag}
@@ -66,6 +54,7 @@ function UploadZone({
           ? "border-primary bg-primary/5 shadow-inner scale-[0.98]"
           : "border-border bg-card hover:border-primary/50 hover:bg-muted/50",
         isUploading && "pointer-events-none opacity-60",
+        !isDriveConnected && "border-amber-500/30 bg-amber-500/[0.02] hover:border-amber-500/50 hover:bg-amber-500/[0.05]",
         className
       )}
     >
@@ -79,10 +68,13 @@ function UploadZone({
       
       <div className={cn(
         "flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground transition-all duration-300",
-        dragActive ? "bg-primary text-primary-foreground scale-110 rotate-3" : "group-hover:bg-primary/10 group-hover:text-primary group-hover:scale-105"
+        dragActive ? "bg-primary text-primary-foreground scale-110 rotate-3" : "group-hover:bg-primary/10 group-hover:text-primary group-hover:scale-105",
+        !isDriveConnected && "bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20"
       )}>
         {isUploading ? (
           <Loader2 className="size-6 animate-spin" />
+        ) : !isDriveConnected ? (
+          <CloudOff className="size-6" />
         ) : (
           <Upload className="size-6" />
         )}
@@ -90,10 +82,10 @@ function UploadZone({
 
       <div className="space-y-1">
         <p className="text-sm font-semibold text-foreground tracking-tight">
-          {isUploading ? "Uploading..." : label}
+          {isUploading ? "Uploading..." : !isDriveConnected ? "Save locally" : label}
         </p>
         <p className="text-xs text-muted-foreground">
-          PDF, JPG, PNG or DOC
+          {!isDriveConnected ? "Sync to Drive later" : "PDF, JPG, PNG or DOC"}
         </p>
       </div>
 

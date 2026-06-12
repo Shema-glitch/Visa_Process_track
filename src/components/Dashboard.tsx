@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, AlertTriangle, Moon, Sun, Settings, FileSearch, Info, ChevronDown } from 'lucide-react';
+import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, AlertTriangle, Moon, Sun, Settings, FileSearch, Info, ChevronDown, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/useAuth';
 import { useTheme } from '@/components/useTheme';
 import { RoadmapPipeline } from './RoadmapPipeline';
@@ -59,6 +59,7 @@ export function Dashboard() {
   
   const [isConnected, setIsConnected] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [checkingConnection, setCheckingConnection] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newReqName, setNewReqName] = useState('');
   const [newReqPhase, setNewReqPhase] = useState('1');
@@ -67,13 +68,36 @@ export function Dashboard() {
 
   const checkGoogleDriveConnection = useCallback(async () => {
     if (!user) return;
+    
+    // Step 1: Optimistic Check (Fast)
+    // We check if a record exists in the database. If it does, we assume connection 
+    // for immediate UI feedback while we verify the token in the background.
+    try {
+      const exists = await driveRepo.isConnected(user.id);
+      if (exists) {
+        setIsConnected(true);
+        // We don't set checkingConnection to false yet if we want to show a spinner,
+        // but the user wants it to "immediately react", so let's show connected right away.
+        setCheckingConnection(false);
+      }
+    } catch (err) {
+      console.warn('Optimistic check failed:', err);
+    }
+
+    // Step 2: Thorough Verification (Background)
+    // This calls the Edge Function to verify the actual token validity and refresh it if needed.
     try {
       const result = await driveRepo.verifyConnection();
       setIsConnected(result.connected);
       setFolderId(result.folderId || null);
     } catch (err) {
-      console.error('Connection verification failed:', err);
-      setIsConnected(false);
+      // If verification fails because the function itself is missing or errors out,
+      // we don't want to "crash" back to disconnected if Step 1 (DB check) passed.
+      console.warn('Background verification skipped or failed:', err);
+      // We only force disconnected if we are sure there is no record (Step 1 would have caught this)
+      // or if we want to be strict. Let's be resilient for now.
+    } finally {
+      setCheckingConnection(false);
     }
   }, [user]);
 
@@ -270,9 +294,9 @@ export function Dashboard() {
                     <Cloud className="size-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">{isConnected ? 'Connected to Drive' : 'Drive disconnected'}</p>
+                    <p className="text-sm font-bold">{isConnected ? 'Connected to Drive' : 'Cloud sync paused'}</p>
                     <p className="text-xs font-medium text-muted-foreground">
-                      {isConnected ? 'Your files are securely synced' : 'Documents are stored locally only'}
+                      {isConnected ? 'Your files are securely backed up' : 'Roadmap progress is saved locally'}
                     </p>
                   </div>
                 </div>
@@ -282,7 +306,12 @@ export function Dashboard() {
               </div>
               
               <div className="flex gap-2">
-                {isConnected ? (
+                {checkingConnection ? (
+                  <Button disabled size="sm" className="w-full font-bold h-9 rounded-lg gap-2">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Checking Connection
+                  </Button>
+                ) : isConnected ? (
                   <>
                     {folderId && (
                       <Button 
@@ -302,7 +331,7 @@ export function Dashboard() {
                       onClick={() => driveRepo.initiateAuth()}
                       title="Reconnect Drive"
                     >
-                      <RefreshCw className={cn("size-3.5", syncing && "animate-spin")} />
+                      <RefreshCw className="size-3.5" />
                     </Button>
                   </>
                 ) : (

@@ -81,12 +81,19 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Google rejected the exchange: ${JSON.stringify(tokens)}`);
     }
 
+    const { data: existingAuth } = await supabaseClient
+      .from('google_drive_auth')
+      .select('app_folder_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
     const { error: upsertError } = await supabaseClient
       .from('google_drive_auth')
       .upsert({
         user_id: user.id,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token || null,
+        app_folder_id: existingAuth?.app_folder_id || null,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 

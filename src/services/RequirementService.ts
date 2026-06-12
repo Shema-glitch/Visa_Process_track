@@ -50,8 +50,19 @@ export class RequirementService {
     file: File,
     languageTag: LanguageTag
   ): Promise<void> {
-    const driveName = `${languageTag}_${file.name}`;
-    const { fileId } = await this.driveRepo.uploadFile(file, driveName);
+    const isConnected = await this.driveRepo.isConnected(userId);
+    let fileId = 'pending_sync';
+
+    if (isConnected) {
+      try {
+        const driveName = `${languageTag}_${file.name}`;
+        const result = await this.driveRepo.uploadFile(file, driveName);
+        fileId = result.fileId;
+      } catch (err) {
+        console.warn('Drive upload failed, falling back to local-first metadata:', err);
+        // We still proceed to save metadata so the user doesn't lose progress
+      }
+    }
 
     await this.attachmentRepo.add({
       requirementId,

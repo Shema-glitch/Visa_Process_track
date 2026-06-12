@@ -1,5 +1,5 @@
 import * as React from "react"
-import { FileText, Eye, Download, X, Loader2 } from "lucide-react"
+import { FileText, Eye, Download, X, Loader2, CloudOff } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,7 @@ function DocumentAttachment({
   className,
 }: DocumentAttachmentProps) {
   const [isRemoving, setIsRemoving] = React.useState(false)
+  const isPendingSync = attachment.gDriveFileId === 'pending_sync'
 
   const handleRemove = async () => {
     setIsRemoving(true)
@@ -42,24 +43,35 @@ function DocumentAttachment({
     <div
       className={cn(
         "group relative flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20 hover:shadow-sm",
+        isPendingSync && "border-amber-500/20 bg-amber-500/[0.02]",
         className
       )}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-            <FileText className="size-5" />
+          <div className={cn(
+            "flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary",
+            isPendingSync && "bg-amber-500/10 text-amber-500"
+          )}>
+            {isPendingSync ? <CloudOff className="size-5" /> : <FileText className="size-5" />}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="truncate text-sm font-semibold text-foreground">
               {attachment.filename}
             </span>
-            <Badge
-              variant="outline"
-              className="mt-1 w-fit border-border/50 bg-muted/50 text-xs font-medium"
-            >
-              {languageLabel}
-            </Badge>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge
+                variant="outline"
+                className="w-fit border-border/50 bg-muted/50 text-xs font-medium"
+              >
+                {languageLabel}
+              </Badge>
+              {isPendingSync && (
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-none text-[10px] h-4 px-1.5 font-bold">
+                  Sync pending
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
         <Button
@@ -84,18 +96,20 @@ function DocumentAttachment({
           size="sm"
           className="h-9 gap-2 text-xs"
           onClick={() => onView(attachment)}
+          disabled={isPendingSync}
         >
           <Eye className="size-3.5" />
-          View
+          {isPendingSync ? "Unlock Sync" : "View"}
         </Button>
         <Button
           variant="outline"
           size="sm"
           className="h-9 gap-2 text-xs"
           onClick={() => onDownload(attachment)}
+          disabled={isPendingSync}
         >
           <Download className="size-3.5" />
-          Download
+          {isPendingSync ? "Cloud only" : "Download"}
         </Button>
       </div>
     </div>
