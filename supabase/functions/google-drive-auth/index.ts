@@ -94,8 +94,10 @@ Deno.serve(async (req: Request) => {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token || null,
         app_folder_id: existingAuth?.app_folder_id || null,
+        expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
+
 
     if (upsertError) {
       throw new Error("Failed to store tokens in database");

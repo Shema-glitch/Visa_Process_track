@@ -10,6 +10,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    allowedHosts: [
+      'skimpily-ducking-moonwalk.ngrok-free.dev',
+    ],
+  },
+
   optimizeDeps: {
     include: ['lucide-react'],
   },

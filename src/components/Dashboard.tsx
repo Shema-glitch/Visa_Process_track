@@ -68,36 +68,41 @@ export function Dashboard() {
 
   const checkGoogleDriveConnection = useCallback(async () => {
     if (!user) return;
-    
-    // Step 1: Optimistic Check (Fast)
-    // We check if a record exists in the database. If it does, we assume connection 
-    // for immediate UI feedback while we verify the token in the background.
+
+    // Step 1: Optimistic check — DB record presence (fast, <100ms)
+    // Shows the button in the correct state immediately without waiting for the Edge Function.
+    let dbRecordExists = false;
     try {
-      const exists = await driveRepo.isConnected(user.id);
-      if (exists) {
+      dbRecordExists = await driveRepo.isConnected(user.id);
+      if (dbRecordExists) {
         setIsConnected(true);
-        // We don't set checkingConnection to false yet if we want to show a spinner,
-        // but the user wants it to "immediately react", so let's show connected right away.
-        setCheckingConnection(false);
       }
     } catch (err) {
       console.warn('Optimistic check failed:', err);
+    } finally {
+      // Release the spinner as soon as we have DB answer — no need to wait for verify.
+      setCheckingConnection(false);
     }
 
-    // Step 2: Thorough Verification (Background)
-    // This calls the Edge Function to verify the actual token validity and refresh it if needed.
+    // Step 2: Background token verification — only mutates state if token is provably dead.
+    // The Edge Function already tries to refresh the token before returning connected:false,
+    // so if it says false, the refresh token is also gone — safe to surface to the user.
     try {
       const result = await driveRepo.verifyConnection();
-      setIsConnected(result.connected);
       setFolderId(result.folderId || null);
+
+      // Only snap to disconnected if the DB record exists but the token is dead.
+      // If the DB record doesn't exist, Step 1 already left isConnected=false.
+      if (dbRecordExists && !result.connected) {
+        // Token is dead and refresh failed — genuinely disconnected.
+        setIsConnected(false);
+      } else if (result.connected) {
+        setIsConnected(true);
+      }
     } catch (err) {
-      // If verification fails because the function itself is missing or errors out,
-      // we don't want to "crash" back to disconnected if Step 1 (DB check) passed.
-      console.warn('Background verification skipped or failed:', err);
-      // We only force disconnected if we are sure there is no record (Step 1 would have caught this)
-      // or if we want to be strict. Let's be resilient for now.
-    } finally {
-      setCheckingConnection(false);
+      // Edge Function error (network, deploy issue, etc.) — don't punish the user.
+      // Keep whatever state Step 1 set.
+      console.warn('Background verification skipped or failed — keeping optimistic state:', err);
     }
   }, [user]);
 

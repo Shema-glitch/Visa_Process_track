@@ -108,14 +108,14 @@ function App() {
   if (loading || checkingOnboarding || savingRequirements) {
     console.log('📱 App: Rendering loading state', { loading, checkingOnboarding, savingRequirements });
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 rounded-full border-4 border-muted border-t-primary animate-spin mx-auto" />
-          <div className="space-y-1">
-            <p className="text-lg font-bold tracking-tight">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 p-4">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="size-12 rounded-full border-4 border-zinc-800 border-t-zinc-200 animate-spin" />
+          <div className="flex flex-col gap-1">
+            <p className="text-lg font-bold tracking-tight text-zinc-100">
               {savingRequirements ? 'Preparing Your Hub' : 'Initializing Portal'}
             </p>
-            <p className="text-sm text-muted-foreground animate-pulse">
+            <p className="animate-pulse text-sm text-zinc-500">
               {savingRequirements
                 ? 'Generating your personalized roadmap...'
                 : loading
