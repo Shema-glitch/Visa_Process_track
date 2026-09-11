@@ -82,26 +82,26 @@ export function AuthShell({
   return (
     <div className={cn("relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-50", className)}>
       <style>{`
-        .accent-lines{position:absolute;inset:0;pointer-events:none;opacity:.7}
+        .accent-lines{position:absolute;inset:0;pointer-events:none;opacity:.2}
         .hline,.vline{position:absolute;background:#27272a;will-change:transform,opacity}
-        .hline{left:0;right:0;height:1px;transform:scaleX(0);transform-origin:50% 50%;animation:drawX .8s cubic-bezier(.22,.61,.36,1) forwards}
-        .vline{top:0;bottom:0;width:1px;transform:scaleY(0);transform-origin:50% 0%;animation:drawY .9s cubic-bezier(.22,.61,.36,1) forwards}
-        .hline:nth-child(1){top:18%;animation-delay:.12s}
-        .hline:nth-child(2){top:50%;animation-delay:.22s}
-        .hline:nth-child(3){top:82%;animation-delay:.32s}
-        .vline:nth-child(4){left:22%;animation-delay:.42s}
-        .vline:nth-child(5){left:50%;animation-delay:.54s}
-        .vline:nth-child(6){left:78%;animation-delay:.66s}
-        .hline::after,.vline::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(250,250,250,.24),transparent);opacity:0;animation:shimmer .9s ease-out forwards}
-        .hline:nth-child(1)::after{animation-delay:.12s}
-        .hline:nth-child(2)::after{animation-delay:.22s}
-        .hline:nth-child(3)::after{animation-delay:.32s}
-        .vline:nth-child(4)::after{animation-delay:.42s}
-        .vline:nth-child(5)::after{animation-delay:.54s}
-        .vline:nth-child(6)::after{animation-delay:.66s}
-        @keyframes drawX{0%{transform:scaleX(0);opacity:0}60%{opacity:.95}100%{transform:scaleX(1);opacity:.7}}
-        @keyframes drawY{0%{transform:scaleY(0);opacity:0}60%{opacity:.95}100%{transform:scaleY(1);opacity:.7}}
-        @keyframes shimmer{0%{opacity:0}35%{opacity:.25}100%{opacity:0}}
+        .hline{left:0;right:0;height:1px;transform:scaleX(0);transform-origin:50% 50%;animation:drawX 1.2s cubic-bezier(.22,.61,.36,1) forwards}
+        .vline{top:0;bottom:0;width:1px;transform:scaleY(0);transform-origin:50% 0%;animation:drawY 1.4s cubic-bezier(.22,.61,.36,1) forwards}
+        .hline:nth-child(1){top:18%;animation-delay:.2s}
+        .hline:nth-child(2){top:50%;animation-delay:.35s}
+        .hline:nth-child(3){top:82%;animation-delay:.5s}
+        .vline:nth-child(4){left:22%;animation-delay:.6s}
+        .vline:nth-child(5){left:50%;animation-delay:.75s}
+        .vline:nth-child(6){left:78%;animation-delay:.9s}
+        .hline::after,.vline::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(250,250,250,.08),transparent);opacity:0;animation:shimmer 1.2s ease-out forwards}
+        .hline:nth-child(1)::after{animation-delay:.2s}
+        .hline:nth-child(2)::after{animation-delay:.35s}
+        .hline:nth-child(3)::after{animation-delay:.5s}
+        .vline:nth-child(4)::after{animation-delay:.6s}
+        .vline:nth-child(5)::after{animation-delay:.75s}
+        .vline:nth-child(6)::after{animation-delay:.9s}
+        @keyframes drawX{0%{transform:scaleX(0);opacity:0}60%{opacity:.5}100%{transform:scaleX(1);opacity:.3}}
+        @keyframes drawY{0%{transform:scaleY(0);opacity:0}60%{opacity:.5}100%{transform:scaleY(1);opacity:.3}}
+        @keyframes shimmer{0%{opacity:0}35%{opacity:.1}100%{opacity:0}}
         .card-animate{opacity:0;transform:translateY(20px);animation:fadeUp .8s cubic-bezier(.22,.61,.36,1) .4s forwards}
         @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
       `}</style>
@@ -117,7 +117,7 @@ export function AuthShell({
         <div className="vline" />
       </div>
 
-      <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+      <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 opacity-15" aria-hidden="true" />
 
       <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
         <div className="flex items-center gap-2.5">

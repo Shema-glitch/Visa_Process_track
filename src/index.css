@@ -54,10 +54,6 @@
     --status-pending: #94A3B8;
   }
 
-  * {
-    @apply border-border;
-  }
-
   html {
     scroll-behavior: smooth;
   }

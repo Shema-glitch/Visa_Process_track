@@ -4,9 +4,17 @@ import { AuthPage } from './pages/AuthPage';
 import { GoogleCallbackPage } from './pages/GoogleCallbackPage';
 import { Dashboard } from './components/Dashboard';
 import { OnboardingFlow } from './pages/onboarding/OnboardingFlow';
+import { SupportPage } from './pages/SupportPage';
+import { AdminSupportPage } from './pages/AdminSupportPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { TermsPage } from './pages/TermsPage';
 import { requirementService } from '@/infrastructure/config/services';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { CheckCircle2 } from 'lucide-react';
+
+function useIsAdmin(user: import('@supabase/supabase-js').User | null): boolean {
+  return !!(user?.user_metadata as Record<string, unknown>)?.is_admin;
+}
 
 function App() {
   const { user, loading } = useAuth();
@@ -33,6 +41,14 @@ function App() {
     console.log('📱 App: Checking for Google callback...', { isCallback });
     setIsGoogleCallback(isCallback);
   }, []);
+
+  // Page routing from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const isSupportPage = urlParams.has('support');
+  const isAdminSupport = urlParams.get('admin') === 'support';
+  const ticketIdFromUrl = urlParams.get('ticket');
+  const isPrivacyPage = urlParams.has('privacy');
+  const isTermsPage = urlParams.has('terms');
 
   // Check whether this user has completed onboarding (has requirements in DB)
   useEffect(() => {
@@ -128,6 +144,14 @@ function App() {
     );
   }
 
+  // Legal pages — accessible without auth
+  if (isPrivacyPage) {
+    return <PrivacyPage onBack={() => { window.location.href = '/'; }} />;
+  }
+  if (isTermsPage) {
+    return <TermsPage onBack={() => { window.location.href = '/'; }} />;
+  }
+
   // Google Drive OAuth callback — must be checked before !user guard
   if (isGoogleCallback) {
     console.log('📱 App: Rendering GoogleCallbackPage');
@@ -144,6 +168,16 @@ function App() {
   if (showOnboarding) {
     console.log('📱 App: Rendering OnboardingFlow');
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+  }
+
+  // Support page (user-facing)
+  if (isSupportPage) {
+    return <SupportPage onBack={() => { window.location.href = '/'; }} initialTicketId={ticketIdFromUrl} />;
+  }
+
+  // Admin support dashboard — only for users with is_admin in JWT metadata
+  if (isAdminSupport && useIsAdmin(user)) {
+    return <AdminSupportPage onBack={() => { window.location.href = '/'; }} initialTicketId={ticketIdFromUrl} />;
   }
 
   // Authenticated + requirements exist → dashboard

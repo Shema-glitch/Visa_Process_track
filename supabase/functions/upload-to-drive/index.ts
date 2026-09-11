@@ -7,17 +7,77 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PHASE_FOLDERS: Record<number, string> = {
+  1: "Phase 1 - DIY Documents",
+  2: "Phase 2 - Bank & Notary",
+  3: "Phase 3 - University",
+  4: "Phase 4 - Embassy",
+};
+
+/**
+ * Finds a subfolder by name inside a parent folder.
+ * Returns the folder ID if found, or null.
+ */
+async function findSubfolder(
+  token: string,
+  parentId: string,
+  name: string
+): Promise<string | null> {
+  const query = `name = '${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.files?.[0]?.id ?? null;
+}
+
+/**
+ * Finds or creates a subfolder by name inside a parent folder.
+ */
+async function ensureSubfolder(
+  token: string,
+  parentId: string,
+  name: string
+): Promise<string> {
+  const existing = await findSubfolder(token, parentId, name);
+  if (existing) return existing;
+
+  const res = await fetch(
+    "https://www.googleapis.com/drive/v3/files?fields=id",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [parentId],
+      }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to create folder: ${name}`);
+  }
+  const data = await res.json();
+  return data.id;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const customName = formData.get("name") as string;
+    const phaseRaw = formData.get("phase") as string | null;
+    const phase = phaseRaw ? parseInt(phaseRaw, 10) : null;
 
     if (!file) {
       return new Response(
@@ -36,16 +96,10 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    const supabaseClient = createClient(
-      supabaseUrl,
-      supabaseServiceKey,
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
@@ -55,10 +109,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    let { data: authData, error: authError } = await supabaseClient
-      .from('google_drive_auth')
-      .select('access_token, refresh_token, app_folder_id')
-      .eq('user_id', user.id)
+    const { data: authData, error: authError } = await supabaseClient
+      .from("google_drive_auth")
+      .select("access_token, refresh_token, app_folder_id")
+      .eq("user_id", user.id)
       .single();
 
     if (authError || !authData) {
@@ -70,11 +124,10 @@ Deno.serve(async (req: Request) => {
 
     let accessToken = authData.access_token;
 
-    // Helper function to upload
     const attemptUpload = async (token: string, folderId: string | null) => {
-      // Create app folder if it doesn't exist
+      // Step 1: Ensure the root "Visa Vault Archive" folder exists
       if (!folderId) {
-        const folderResponse = await fetch(
+        const folderRes = await fetch(
           "https://www.googleapis.com/drive/v3/files?fields=id",
           {
             method: "POST",
@@ -88,52 +141,64 @@ Deno.serve(async (req: Request) => {
             }),
           }
         );
-
-        if (folderResponse.status === 401) return { error: 'unauthorized' };
-
-        const folderData = await folderResponse.json();
+        if (folderRes.status === 401) return { error: "unauthorized" };
+        const folderData = await folderRes.json();
         folderId = folderData.id;
 
-        // Update folder ID in DB
         await supabaseClient
-          .from('google_drive_auth')
+          .from("google_drive_auth")
           .update({ app_folder_id: folderId })
-          .eq('user_id', user.id);
+          .eq("user_id", user.id);
       }
 
+      // Step 2: Determine target folder — phase subfolder or root
+      let targetFolderId = folderId;
+
+      if (phase && PHASE_FOLDERS[phase]) {
+        try {
+          targetFolderId = await ensureSubfolder(token, folderId, PHASE_FOLDERS[phase]);
+        } catch (err) {
+          console.warn(`Failed to create phase folder, falling back to root:`, err);
+          // Fall back to root folder — upload still succeeds
+          targetFolderId = folderId;
+        }
+      }
+
+      // Step 3: Upload the file into the target folder
       const uploadFormData = new FormData();
-      uploadFormData.append("metadata", new Blob([JSON.stringify({
-        name: file.name,
-        parents: [folderId],
-      })], { type: "application/json" }));
+      uploadFormData.append(
+        "metadata",
+        new Blob(
+          [JSON.stringify({ name: customName || file.name, parents: [targetFolderId] })],
+          { type: "application/json" }
+        )
+      );
       uploadFormData.append("file", file);
 
-      const uploadResponse = await fetch(
+      const uploadRes = await fetch(
         "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
           body: uploadFormData,
         }
       );
 
-      if (uploadResponse.status === 401) return { error: 'unauthorized' };
+      if (uploadRes.status === 401) return { error: "unauthorized" };
 
-      const uploadedFileData = await uploadResponse.json();
-      if (!uploadResponse.ok) {
-        throw new Error(uploadedFileData.error?.message || "Upload failed");
+      const uploadedData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(uploadedData.error?.message || "Upload failed");
       }
-      return { data: uploadedFileData };
+      return { data: uploadedData };
     };
 
     let result = await attemptUpload(accessToken, authData.app_folder_id);
 
-    // If unauthorized, try refreshing token
-    if (result.error === 'unauthorized' && authData.refresh_token) {
+    // Token refresh on 401
+    if (result.error === "unauthorized" && authData.refresh_token) {
       console.log("Refreshing Google Drive token...");
-      const refreshResponse = await fetch("https://oauth2.googleapis.com/token", {
+      const refreshRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -144,47 +209,36 @@ Deno.serve(async (req: Request) => {
         }).toString(),
       });
 
-      if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json();
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
         accessToken = refreshData.access_token;
 
-        // Update tokens in DB
         await supabaseClient
-          .from('google_drive_auth')
-          .update({ 
-            access_token: accessToken,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
+          .from("google_drive_auth")
+          .update({ access_token: accessToken, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
 
-        // Retry upload
         result = await attemptUpload(accessToken, authData.app_folder_id);
       }
     }
 
     if (result.error) {
-      throw new Error(result.error === 'unauthorized' ? "Authentication with Google Drive failed. Please reconnect." : "Upload failed");
+      throw new Error(
+        result.error === "unauthorized"
+          ? "Authentication with Google Drive failed. Please reconnect."
+          : "Upload failed"
+      );
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        fileId: result.data.id,
-        fileName: file.name,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true, fileId: result.data.id, fileName: file.name }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Upload error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Upload failed" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Cloud, LogOut, Plus, RefreshCw, Folder, CheckCircle2, AlertTriangle, Moon, Sun, Settings, FileSearch, Info, ChevronDown, Loader2 } from 'lucide-react';
+import { Cloud, LogOut, Plus, RefreshCw, Folder, AlertTriangle, Moon, Sun, Settings, FileSearch, Info, ChevronDown, Loader2, LifeBuoy, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/useAuth';
 import { useTheme } from '@/components/useTheme';
 import { RoadmapPipeline } from './RoadmapPipeline';
@@ -9,7 +9,7 @@ import { driveRepo } from '@/infrastructure/config/services';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -65,6 +65,7 @@ export function Dashboard() {
   const [newReqPhase, setNewReqPhase] = useState('1');
   const [syncing, setSyncing] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [hasAutoSynced, setHasAutoSynced] = useState(false);
 
   const checkGoogleDriveConnection = useCallback(async () => {
     if (!user) return;
@@ -111,6 +112,21 @@ export function Dashboard() {
     checkGoogleDriveConnection();
   }, [user, fetchRequirements, checkGoogleDriveConnection]);
 
+  useEffect(() => {
+    if (isConnected && !hasAutoSynced) {
+      setHasAutoSynced(true);
+      const runSync = async () => {
+        try {
+          await supabase.functions.invoke('sync-drive-files');
+          await fetchRequirements();
+        } catch (err) {
+          console.warn('Auto-sync failed:', err);
+        }
+      };
+      runSync();
+    }
+  }, [isConnected, hasAutoSynced, fetchRequirements]);
+
   const handleStatusChange = async (id: string, newStatus: RequirementStatus) => {
     await updateStatus(id, newStatus);
   };
@@ -140,9 +156,17 @@ export function Dashboard() {
 
   const handleSync = async () => {
     setSyncing(true);
-    await fetchRequirements();
-    await checkGoogleDriveConnection();
-    setSyncing(false);
+    try {
+      if (isConnected) {
+        await supabase.functions.invoke('sync-drive-files');
+      }
+      await fetchRequirements();
+      await checkGoogleDriveConnection();
+    } catch (err) {
+      console.error('Sync error:', err);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleDebugReset = async () => {
@@ -191,9 +215,18 @@ export function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              className="rounded-full hover:bg-muted"
+              title="Help & Support"
+              onClick={() => { window.location.href = '?support'; }}
+            >
+              <LifeBuoy className="size-4" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8 rounded-full hover:bg-muted" title="Settings">
+                <Button variant="ghost" size="iconSm" className="rounded-full hover:bg-muted" title="Settings">
                   <Settings className="size-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -211,6 +244,13 @@ export function Dashboard() {
                   <AlertTriangle className="size-4" />
                   <span>Reset Onboarding</span>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {!!(user?.user_metadata as Record<string, unknown>)?.is_admin && (
+                  <DropdownMenuItem onClick={() => { window.location.href = '?admin=support'; }} className="rounded-lg gap-2">
+                    <Shield className="size-4" />
+                    <span>Support Tickets</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut()} className="rounded-lg gap-2">
                   <LogOut className="size-4" />
@@ -312,27 +352,27 @@ export function Dashboard() {
               
               <div className="flex gap-2">
                 {checkingConnection ? (
-                  <Button disabled size="sm" className="w-full font-bold h-9 rounded-lg gap-2">
+                  <Button disabled size="action" className="w-full">
                     <Loader2 className="size-3.5 animate-spin" />
                     Checking Connection
                   </Button>
                 ) : isConnected ? (
                   <>
                     {folderId && (
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="flex-1 font-bold h-9 rounded-lg gap-2"
+                      <Button
+                        variant="secondary"
+                        size="action"
+                        className="flex-1"
                         onClick={() => window.open(`https://drive.google.com/drive/folders/${folderId}`, '_blank')}
                       >
                         <Folder className="size-3.5" />
                         View Archive
                       </Button>
                     )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="font-bold h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground"
+                    <Button
+                      variant="ghost"
+                      size="iconSm"
+                      className="text-muted-foreground hover:text-foreground"
                       onClick={() => driveRepo.initiateAuth()}
                       title="Reconnect Drive"
                     >
@@ -340,10 +380,10 @@ export function Dashboard() {
                     </Button>
                   </>
                 ) : (
-                  <Button 
-                    onClick={() => driveRepo.initiateAuth()} 
-                    size="sm" 
-                    className="w-full font-bold h-9 rounded-lg gap-2 shadow-lg shadow-primary/10"
+                  <Button
+                    onClick={() => driveRepo.initiateAuth()}
+                    size="action"
+                    className="w-full shadow-lg shadow-primary/10"
                   >
                     <Cloud className="size-3.5" />
                     Connect Google Drive
@@ -362,7 +402,7 @@ export function Dashboard() {
               Tracking <span className="text-foreground font-bold">{totalCount}</span> total items
             </p>
           </div>
-          <Button onClick={() => setShowAddDialog(true)} size="sm" variant="outline" className="gap-2 rounded-full font-bold border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+          <Button onClick={() => setShowAddDialog(true)} size="action" variant="outline" className="rounded-full border-primary/20 hover:bg-primary/5 hover:text-primary">
             <Plus className="size-4" />
             Add document
           </Button>
@@ -428,15 +468,37 @@ export function Dashboard() {
             </div>
           </form>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setShowAddDialog(false)} className="font-bold">
+            <Button variant="ghost" size="action" onClick={() => setShowAddDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddRequirement} className="font-bold shadow-lg shadow-primary/20">
+            <Button size="cta" onClick={handleAddRequirement} className="shadow-lg shadow-primary/20">
               Create document
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Footer with legal links */}
+      <footer className="border-t border-border bg-card/50 mt-16">
+        <div className="container px-4 py-6 max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            &copy; {new Date().getFullYear()} Visa Vault. All rights reserved.
+          </p>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <button onClick={() => { window.location.href = '?privacy'; }} className="hover:text-foreground transition-colors">
+              Privacy Policy
+            </button>
+            <span className="text-border">·</span>
+            <button onClick={() => { window.location.href = '?terms'; }} className="hover:text-foreground transition-colors">
+              Terms & Conditions
+            </button>
+            <span className="text-border">·</span>
+            <button onClick={() => { window.location.href = '?support'; }} className="hover:text-foreground transition-colors">
+              Support
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -55,8 +55,12 @@ export class RequirementService {
 
     if (isConnected) {
       try {
-        const driveName = `${languageTag}_${file.name}`;
-        const result = await this.driveRepo.uploadFile(file, driveName);
+        const reqs = await this.requirementRepo.fetchByUserId(userId);
+        const req = reqs.find(r => r.id === requirementId);
+        const reqName = req ? req.name : 'Unknown';
+        const phase = req ? req.phase : 4;
+        const driveName = `${reqName}__${languageTag}__${file.name}`;
+        const result = await this.driveRepo.uploadFile(file, driveName, phase);
         fileId = result.fileId;
       } catch (err) {
         console.warn('Drive upload failed, falling back to local-first metadata:', err);
@@ -101,13 +105,17 @@ export class RequirementService {
     _country?: string   // reserved for future per-country logic; unused for now
   ): Promise<void> {
     // Phase mapping derived from the onboarding STANDARD_REQUIREMENTS categories.
-    // This avoids any DB lookup while preserving the correct phase assignment.
+    // Must match the dashboard phase labels:
+    //   Phase 1: DIY Documents  → Identity, Application
+    //   Phase 2: Bank & Notary  → Financial
+    //   Phase 3: University     → Background, Health, Education
+    //   Phase 4: Embassy        → Travel, Logistics, Custom
     const CATEGORY_TO_PHASE: Record<string, number> = {
       Identity:    1,
       Application: 1,
-      Background:  2,
-      Health:      2,
-      Financial:   3,
+      Financial:   2,
+      Background:  3,
+      Health:      3,
       Education:   3,
       Travel:      4,
       Logistics:   4,

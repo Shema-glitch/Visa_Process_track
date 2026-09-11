@@ -32,10 +32,13 @@ export class GoogleDriveRepository implements IDriveRepository {
     }
   }
 
-  async uploadFile(file: File, name: string): Promise<{ fileId: string }> {
+  async uploadFile(file: File, name: string, phase?: number): Promise<{ fileId: string }> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', name);
+    if (phase !== undefined) {
+      formData.append('phase', String(phase));
+    }
 
     const { data, error } = await supabase.functions.invoke('upload-to-drive', {
       body: formData,

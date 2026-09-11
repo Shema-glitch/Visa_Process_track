@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { ShieldAlert } from 'lucide-react';
 import { toast, dismiss } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/useAuth';
 
@@ -25,12 +24,7 @@ export function LoginActivityBanner() {
     const id = toast({
       variant: 'warning',
       duration: 8000,
-      title: (
-        <span className="flex items-center gap-2 text-amber-200">
-          <ShieldAlert className="size-4 shrink-0 text-amber-400" />
-          New sign-in detected at {timeStr}
-        </span>
-      ),
+      title: `New sign-in detected at ${timeStr}`,
       action: (
         <div className="flex gap-1.5 shrink-0">
           <button

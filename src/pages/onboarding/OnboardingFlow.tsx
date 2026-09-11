@@ -39,21 +39,21 @@ interface CountryRequirements {
 }
 
 const STANDARD_REQUIREMENTS = [
-  { id: "1", name: "Valid Passport", mandatory: true, category: "Identity" },
-  { id: "2", name: "Passport Photos", mandatory: true, category: "Identity" },
-  { id: "3", name: "Personal Motivation Letter", mandatory: true, category: "Application" },
-  { id: "4", name: "Birth Certificate", mandatory: true, category: "Identity" },
-  { id: "5", name: "Criminal Record", mandatory: true, category: "Background" },
-  { id: "6", name: "Certificate of Being Alive", mandatory: true, category: "Identity" },
-  { id: "7", name: "General Checkup", mandatory: true, category: "Health" },
-  { id: "8", name: "Bank Statements", mandatory: true, category: "Financial" },
-  { id: "9", name: "Guardian's Sponsorship Letter", mandatory: true, category: "Financial" },
-  { id: "10", name: "Payment Receipt", mandatory: true, category: "Financial" },
-  { id: "11", name: "University Acceptance Letter", mandatory: true, category: "Education" },
-  { id: "12", name: "Travel Insurance", mandatory: true, category: "Travel" },
-  { id: "13", name: "Health Insurance", mandatory: true, category: "Health" },
-  { id: "14", name: "Accommodation Proof", mandatory: true, category: "Logistics" },
-  { id: "15", name: "Visa Application Form", mandatory: true, category: "Application" },
+  { id: "1", name: "Valid Passport", mandatory: false, category: "Identity" },
+  { id: "2", name: "Passport Photos", mandatory: false, category: "Identity" },
+  { id: "3", name: "Personal Motivation Letter", mandatory: false, category: "Application" },
+  { id: "4", name: "Birth Certificate", mandatory: false, category: "Identity" },
+  { id: "5", name: "Criminal Record", mandatory: false, category: "Background" },
+  { id: "6", name: "Certificate of Being Alive", mandatory: false, category: "Identity" },
+  { id: "7", name: "General Checkup", mandatory: false, category: "Health" },
+  { id: "8", name: "Bank Statements", mandatory: false, category: "Financial" },
+  { id: "9", name: "Guardian's Sponsorship Letter", mandatory: false, category: "Financial" },
+  { id: "10", name: "Payment Receipt", mandatory: false, category: "Financial" },
+  { id: "11", name: "University Acceptance Letter", mandatory: false, category: "Education" },
+  { id: "12", name: "Travel Insurance", mandatory: false, category: "Travel" },
+  { id: "13", name: "Health Insurance", mandatory: false, category: "Health" },
+  { id: "14", name: "Accommodation Proof", mandatory: false, category: "Logistics" },
+  { id: "15", name: "Visa Application Form", mandatory: false, category: "Application" },
 ]
 
 const VISA_DATA: CountryRequirements[] = [
@@ -104,7 +104,7 @@ function AnimatedProgress({ value, label }: { value: number; label: string }) {
 
   return (
     <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
-      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{label}</span>
+      <span className="text-xs font-semibold text-zinc-500">{label}</span>
       <motion.span
         key={display}
         initial={{ scale: 0.9, opacity: 0.6 }}
@@ -146,8 +146,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setSelectedCountry(country)
     const countryData = VISA_DATA.find((c) => c.country === country)
     if (countryData) {
-      const mandatory = new Set(countryData.requirements.filter((r) => r.mandatory).map((r) => r.id))
-      setSelectedRequirements(mandatory)
+      const allReqs = new Set(countryData.requirements.map((r) => r.id))
+      setSelectedRequirements(allReqs)
     }
   }
 
@@ -260,12 +260,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
               <div className="flex justify-center">
                 <Button
-                  size="lg"
+                  size="cta"
                   onClick={() => setStep(1)}
-                  className="h-14 gap-3 rounded-2xl border border-zinc-700 bg-zinc-100 px-8 text-lg font-bold text-zinc-950 shadow-xl shadow-black/30 hover:bg-white"
+                  className="border border-zinc-700 bg-zinc-100 text-zinc-950 shadow-xl shadow-black/30 hover:bg-white"
                 >
                   Let's get started
-                  <ArrowRight className="size-5" />
+                  <ArrowRight className="size-4" />
                 </Button>
               </div>
             </motion.div>
@@ -332,16 +332,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div className="flex justify-between">
                 <Button
                   variant="outline"
+                  size="cta"
                   onClick={() => setStep(0)}
-                  className="h-12 gap-2 rounded-xl border-zinc-700 bg-transparent font-bold text-zinc-300 hover:bg-zinc-900"
+                  className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-900"
                 >
                   <ArrowLeft className="size-4" />
                   Back
                 </Button>
                 <Button
+                  size="cta"
                   onClick={() => setStep(2)}
                   disabled={!selectedCountry}
-                  className="h-12 gap-2 rounded-xl border border-zinc-700 bg-zinc-100 px-6 font-bold text-zinc-950 hover:bg-white disabled:opacity-40"
+                  className="border border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white disabled:opacity-40"
                 >
                   Continue
                   <ArrowRight className="size-4" />
@@ -363,7 +365,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <span className="text-4xl">{currentCountryData.flag}</span>
                   <h2 className="text-3xl font-bold tracking-tight text-zinc-50">{currentCountryData.country} Roadmap</h2>
                 </div>
-                <p className="font-medium text-zinc-400">Customize your checklist. Mandatory items are locked.</p>
+                <p className="font-medium text-zinc-400">Select which documents you want to track in your roadmap.</p>
               </div>
 
               <div className="flex flex-col gap-6">
@@ -443,9 +445,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     </div>
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="action"
                       onClick={addCustomRequirement}
-                      className="gap-2 rounded-lg border-zinc-700 font-bold text-zinc-300 hover:bg-zinc-800"
+                      className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
                     >
                       <Plus className="size-4" />
                       Add Extra
@@ -464,7 +466,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       />
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="iconSm"
                         onClick={() => removeCustomRequirement(idx)}
                         className="text-red-400 hover:bg-red-950/30"
                       >
@@ -475,7 +477,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   {customRequirements.length === 0 && (
                     <div className="flex flex-col items-center justify-center gap-2 py-6 opacity-50">
                       <Plus className="size-5 text-zinc-600" />
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">
+                      <p className="text-xs font-semibold text-zinc-500">
                         Optional — skip if not needed
                       </p>
                     </div>
@@ -483,41 +485,50 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 </CardContent>
               </FlowCard>
 
-              <div className="sticky bottom-4 z-10">
-                <FlowCard animate={false} className="max-w-none">
-                  <CardContent className="flex items-center justify-between px-5 py-3">
-                    <span className="text-sm font-bold text-zinc-500">
-                      <span className="text-lg font-black text-zinc-100">{totalSelected}</span> documents selected
-                    </span>
-                    <Button
-                      onClick={() => setStep(3)}
-                      className="h-10 gap-2 rounded-xl border border-zinc-700 bg-zinc-100 px-5 font-bold text-zinc-950 hover:bg-white"
-                    >
-                      Review Roadmap
-                      <ArrowRight className="size-4" />
-                    </Button>
-                  </CardContent>
-                </FlowCard>
-              </div>
+              {/* Bottom padding to prevent content from hiding behind the fixed bar */}
+              <div className="h-20" />
 
               <div className="flex justify-between">
                 <Button
                   variant="outline"
+                  size="cta"
                   onClick={() => setStep(1)}
-                  className="h-12 gap-2 rounded-xl border-zinc-700 bg-transparent font-bold text-zinc-300 hover:bg-zinc-900"
+                  className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-900"
                 >
                   <ArrowLeft className="size-4" />
                   Back
                 </Button>
                 <Button
+                  size="cta"
                   onClick={() => setStep(3)}
-                  className="h-12 gap-2 rounded-xl border border-zinc-700 bg-zinc-100 px-6 font-bold text-zinc-950 hover:bg-white"
+                  className="border border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white"
                 >
                   Review Roadmap
                   <ArrowRight className="size-4" />
                 </Button>
               </div>
             </motion.div>
+          )}
+
+          {/* Fixed bottom action bar — visible during document selection */}
+          {step === 2 && (
+            <div className="fixed bottom-0 left-0 right-0 z-50 p-3 sm:p-4">
+              <div className="mx-auto max-w-5xl">
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-700/80 bg-zinc-900/95 px-5 py-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                  <span className="text-sm font-semibold text-zinc-400">
+                    <span className="text-lg font-black text-zinc-100">{totalSelected}</span> documents selected
+                  </span>
+                  <Button
+                    size="action"
+                    onClick={() => setStep(3)}
+                    className="border border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white"
+                  >
+                    Review Roadmap
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
 
           {step === 3 && currentCountryData && (
@@ -582,15 +593,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div className="flex justify-between">
                 <Button
                   variant="outline"
+                  size="cta"
                   onClick={() => setStep(2)}
-                  className="h-12 gap-2 rounded-xl border-zinc-700 bg-transparent font-bold text-zinc-300 hover:bg-zinc-900"
+                  className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-900"
                 >
                   <ArrowLeft className="size-4" />
                   Review Selections
                 </Button>
                 <Button
+                  size="cta"
                   onClick={handleComplete}
-                  className="h-12 gap-2 rounded-xl border border-zinc-700 bg-zinc-100 px-8 text-lg font-bold text-zinc-950 hover:bg-white"
+                  className="border border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white"
                 >
                   Go to your dashboard
                   <ArrowRight className="size-4" />

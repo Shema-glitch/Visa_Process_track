@@ -12,7 +12,7 @@ const statusBadgeVariants = cva(
         pending: "bg-muted text-muted-foreground border border-border",
         in_progress: "bg-blue-500/10 text-blue-500 border border-blue-500/20",
         completed: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
-        locked: "bg-muted/50 text-muted-foreground/50 border border-transparent opacity-60",
+        locked: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
       },
     },
     defaultVariants: {

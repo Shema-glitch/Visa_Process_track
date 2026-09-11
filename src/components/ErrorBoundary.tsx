@@ -184,16 +184,16 @@ export class ErrorBoundary extends Component<Props, State> {
                 />
                 <div className="flex gap-2">
                   <Button
-                    size="sm"
+                    size="action"
                     onClick={this.handleSubmitReport}
                     disabled={!reportText.trim()}
-                    className="flex-1 gap-2"
+                    className="flex-1"
                   >
                     <Send className="size-3.5" />
                     Submit Report
                   </Button>
                   <Button
-                    size="sm"
+                    size="action"
                     variant="ghost"
                     onClick={() => this.setState({ showReportForm: false })}
                   >
@@ -217,8 +217,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
           <CardFooter className="flex flex-col gap-2.5 pt-2">
             <Button
+              size="cta"
               onClick={() => window.location.reload()}
-              className="w-full font-bold gap-2 shadow-lg shadow-primary/20"
+              className="w-full shadow-lg shadow-primary/20"
             >
               <RefreshCw className="size-4" />
               Reload Application
@@ -227,8 +228,9 @@ export class ErrorBoundary extends Component<Props, State> {
             {!reportSent && !showReportForm && (
               <Button
                 variant="outline"
+                size="cta"
                 onClick={() => this.setState({ showReportForm: true })}
-                className="w-full gap-2"
+                className="w-full"
               >
                 <Send className="size-4" />
                 Report this Issue
@@ -237,8 +239,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <Button
               variant="ghost"
+              size="action"
               onClick={() => (window.location.href = '/')}
-              className="w-full text-muted-foreground text-sm"
+              className="w-full text-muted-foreground"
             >
               Go to Homepage
             </Button>

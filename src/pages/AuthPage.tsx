@@ -11,11 +11,14 @@ import {
   RefreshCw,
   Loader2,
   ArrowRight,
-  Info,
+  ClipboardPaste,
+  Key,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import * as Sentry from "@sentry/react"
 import { useAuth } from "../contexts/useAuth"
+import { supabase } from "@/lib/supabase"
+import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,70 +37,6 @@ import {
   recordAttempt,
   formatCooldown,
 } from "@/lib/auth-security"
-
-type ToastType = "success" | "info" | "error" | "warning"
-
-interface InlineToast {
-  message: string
-  type: ToastType
-  id: number
-}
-
-function CornerToastItem({ toast, onDismiss }: { toast: InlineToast; onDismiss: () => void }) {
-  const config: Record<ToastType, { icon: React.ReactNode; classes: string }> = {
-    success: {
-      icon: <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />,
-      classes: "border-emerald-800/60 bg-zinc-900/95 text-emerald-200",
-    },
-    info: {
-      icon: <Info className="size-4 shrink-0 text-blue-400" />,
-      classes: "border-blue-800/60 bg-zinc-900/95 text-blue-200",
-    },
-    error: {
-      icon: <AlertCircle className="size-4 shrink-0 text-red-400" />,
-      classes: "border-red-800/60 bg-zinc-900/95 text-red-200",
-    },
-    warning: {
-      icon: <Clock className="size-4 shrink-0 text-amber-400" />,
-      classes: "border-amber-800/60 bg-zinc-900/95 text-amber-200",
-    },
-  }
-  const { icon, classes } = config[toast.type]
-
-  return (
-    <div
-      className={`flex w-80 max-w-[calc(100vw-2rem)] items-start gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg shadow-black/30 animate-in slide-in-from-bottom-2 fade-in duration-300 ${classes}`}
-      role="alert"
-      aria-live="polite"
-    >
-      {icon}
-      <span className="flex-1 leading-snug">{toast.message}</span>
-      <button
-        onClick={onDismiss}
-        className="mt-0.5 shrink-0 opacity-40 transition-opacity hover:opacity-100"
-        aria-label="Dismiss notification"
-      >
-        <XCircle className="size-3.5" />
-      </button>
-    </div>
-  )
-}
-
-function CornerToastPortal({ toasts, onDismiss }: { toasts: InlineToast[]; onDismiss: (id: number) => void }) {
-  if (toasts.length === 0) return null
-  return (
-    <div
-      aria-label="Notifications"
-      className="fixed bottom-4 right-4 z-[200] flex flex-col items-end gap-2 pointer-events-none"
-    >
-      {toasts.map((t) => (
-        <div key={t.id} className="pointer-events-auto">
-          <CornerToastItem toast={t} onDismiss={() => onDismiss(t.id)} />
-        </div>
-      ))}
-    </div>
-  )
-}
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@")
@@ -134,7 +73,7 @@ function MaskedEmail({ email, className = "" }: { email: string; className?: str
   )
 }
 
-type Step = "email" | "new-device" | "otp"
+type Step = "email" | "new-device" | "otp" | "admin" | "reset"
 
 const STEPS = [
   { key: "email", label: "Email" },
@@ -146,10 +85,17 @@ const stepIndex: Record<Step, number> = {
   email: 0,
   "new-device": 1,
   otp: 2,
+  admin: 2,
+  reset: 2,
 }
 
 export function AuthPage() {
-  const [step, setStep] = useState<Step>("email")
+  // Check for ?admin=login or ?admin=reset in URL
+  const urlParams = new URLSearchParams(window.location.search)
+  const adminParam = urlParams.get('admin')
+  const initialStep: Step = adminParam === 'login' ? 'admin' : adminParam === 'reset' ? 'reset' : 'email'
+
+  const [step, setStep] = useState<Step>(initialStep)
   const [email, setEmail] = useState("")
   const [emailError, setEmailError] = useState("")
   const [otp, setOtp] = useState("")
@@ -157,12 +103,15 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [isNewDevice, setIsNewDevice] = useState(false)
   const [cooldown, setCooldown] = useState(0)
-  const [toasts, setToasts] = useState<InlineToast[]>([])
   const [resendCount, setResendCount] = useState(0)
   const [otpShake, setOtpShake] = useState(false)
+  const [adminSecret, setAdminSecret] = useState("")
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetSuccess, setResetSuccess] = useState(false)
 
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const toastIdRef = useRef(0)
   const verifyingRef = useRef(false)
   const { sendOtp, verifyOtp } = useAuth()
 
@@ -174,17 +123,6 @@ export function AuthPage() {
       if (cooldownRef.current) clearInterval(cooldownRef.current)
       verifyingRef.current = false
     }
-  }, [])
-
-  const addToast = useCallback((message: string, type: ToastType = "info", durationMs = 5000) => {
-    const id = ++toastIdRef.current
-    setToasts((prev) => [...prev, { message, type, id }])
-    if (durationMs > 0) setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), durationMs)
-    return id
-  }, [])
-
-  const dismissToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
   const startCooldownTimer = useCallback((seconds: number) => {
@@ -210,7 +148,88 @@ export function AuthPage() {
     setStep("email")
     setOtp("")
     setError("")
-    setToasts([])
+    setAdminSecret("")
+  }
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim() || !adminSecret.trim()) return
+
+    setAdminLoading(true)
+    setError("")
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/admin-auth`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        },
+        body: JSON.stringify({ email: email.trim(), secret: adminSecret.trim() }),
+      })
+
+      const data = await res.json()
+      console.log("Admin auth response:", res.status, data)
+
+      if (!res.ok || !data?.session) {
+        setError(data?.error || `Server error (${res.status}). Check console for details.`)
+        return
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      })
+
+      if (sessionError) {
+        setError("Failed to establish session. Please try again.")
+        return
+      }
+
+      toast({ title: "Admin access granted", variant: "success" })
+    } catch (err) {
+      console.error("Admin login error:", err)
+      setError("Connection issue — please try again.")
+    } finally {
+      setAdminLoading(false)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminSecret.trim() || !newPassword.trim()) return
+
+    setResetLoading(true)
+    setError("")
+    setResetSuccess(false)
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/reset-admin-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: adminSecret.trim(), newPassword: newPassword.trim() }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data?.error || "Failed to reset password.")
+        return
+      }
+
+      setResetSuccess(true)
+      toast({ title: "Password updated!", description: "You can now log in with the new password.", variant: "success" })
+    } catch (err) {
+      setError("Connection issue — please try again.")
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   const handleEmailBlur = () => {
@@ -252,7 +271,7 @@ export function AuthPage() {
       await sendOtp(clean)
       setEmail(clean)
       setResendCount(0)
-      addToast("Code sent! Check your inbox and spam folder.", "success", 6000)
+      toast({ title: "Code sent!", description: "Check your inbox and spam folder.", variant: "success", duration: 6000 })
       setStep(isNewDevice ? "new-device" : "otp")
     } catch (err) {
       const msg = err instanceof Error ? err.message : ""
@@ -266,7 +285,7 @@ export function AuthPage() {
       } else if (msg.toLowerCase().includes("rate") || msg.toLowerCase().includes("exceeded")) {
         startCooldownTimer(getRemainingCooldownSeconds() || 60)
         setError("")
-        addToast("Too many requests — please wait before trying again.", "warning")
+        toast({ title: "Too many requests", description: "Please wait before trying again.", variant: "warning" })
       } else if (
         name === "AuthRetryableFetchError" ||
         msg.toLowerCase().includes("fetch") ||
@@ -292,7 +311,7 @@ export function AuthPage() {
     const remaining = getRemainingCooldownSeconds()
     if (remaining > 0) {
       startCooldownTimer(remaining)
-      addToast(`Please wait ${formatCooldown(remaining)} before resending.`, "warning")
+      toast({ title: "Please wait", description: `Try again in ${formatCooldown(remaining)}.`, variant: "warning" })
       return
     }
 
@@ -302,13 +321,12 @@ export function AuthPage() {
       recordAttempt()
       await sendOtp(email)
       setResendCount((c) => c + 1)
-      addToast(
-        resendCount >= 1
-          ? "Code resent again. Make sure to check your spam folder."
-          : "A fresh code has been sent to your inbox.",
-        "success",
-        7000
-      )
+      toast({
+        title: resendCount >= 1 ? "Code resent again" : "Code sent!",
+        description: resendCount >= 1 ? "Make sure to check your spam folder." : "A fresh code has been sent to your inbox.",
+        variant: "success",
+        duration: 7000,
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : ""
       const name = (err as { name?: string })?.name ?? ""
@@ -318,14 +336,14 @@ export function AuthPage() {
       if (securityMatch) {
         const waitSecs = parseInt(securityMatch[1], 10)
         startCooldownTimer(waitSecs)
-        addToast(`Please wait ${waitSecs}s before resending again.`, "warning", 4000)
+        toast({ title: "Please wait", description: `Try again in ${waitSecs}s.`, variant: "warning", duration: 4000 })
       } else if (msg.toLowerCase().includes("rate") || msg.toLowerCase().includes("exceeded")) {
         startCooldownTimer(getRemainingCooldownSeconds() || 60)
-        addToast("Resend limit reached — please wait before trying again.", "warning")
+        toast({ title: "Resend limit reached", description: "Please wait before trying again.", variant: "warning" })
       } else if (name === "AuthRetryableFetchError" || msg.toLowerCase().includes("fetch")) {
-        addToast("Connection issue while resending — check your internet.", "error")
+        toast({ title: "Connection issue", description: "Check your internet and try again.", variant: "destructive" })
       } else {
-        addToast("Could not resend code. Please try again in a moment.", "error")
+        toast({ title: "Could not resend code", description: "Please try again in a moment.", variant: "destructive" })
       }
       Sentry.captureException(err, { tags: { source: "AuthPage.resend" } })
     } finally {
@@ -339,6 +357,22 @@ export function AuthPage() {
     setError("")
     if (clean.length === 8 && !loading && !verifyingRef.current) {
       setTimeout(() => handleVerifyOtp(clean), 180)
+    }
+  }
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      const clean = sanitizeOtp(text)
+      if (clean.length > 0) {
+        setOtp(clean)
+        setError("")
+        if (clean.length === 8 && !loading && !verifyingRef.current) {
+          setTimeout(() => handleVerifyOtp(clean), 180)
+        }
+      }
+    } catch {
+      // Clipboard API denied or unavailable — silently ignore
     }
   }
 
@@ -356,7 +390,7 @@ export function AuthPage() {
       }
       await verifyOtp(email, cleanOtp)
       markDeviceAsTrusted()
-      addToast("Verified! Signing you in…", "success", 3000)
+      toast({ title: "Verified!", description: "Signing you in…", variant: "success", duration: 3000 })
       Sentry.addBreadcrumb({ category: "auth", message: "OTP verified successfully", level: "info" })
     } catch (err) {
       sessionStorage.removeItem("vrh_new_device_alert")
@@ -397,6 +431,8 @@ export function AuthPage() {
     email: "Sign in or create account",
     "new-device": "New device detected",
     otp: "Check your inbox",
+    admin: "Admin access",
+    reset: "Reset admin password",
   }
 
   const subtitles: Record<Step, React.ReactNode> = {
@@ -411,14 +447,14 @@ export function AuthPage() {
         Code sent to <MaskedEmail email={email} />
       </>
     ),
+    admin: "Enter your admin credentials to access the support dashboard.",
+    reset: "Set a new password for the admin account.",
   }
 
   return (
     <AuthShell>
-      <CornerToastPortal toasts={toasts} onDismiss={dismissToast} />
-
       <div className="flex w-full max-w-md flex-col items-center gap-6">
-        {step !== "email" && (
+        {step !== "email" && step !== "admin" && (
           <FlowStepIndicator steps={[...STEPS]} currentIndex={stepIndex[step]} />
         )}
 
@@ -525,7 +561,8 @@ export function AuthPage() {
                   <Button
                     id="send-otp-btn"
                     type="submit"
-                    className="h-11 w-full gap-2 border border-zinc-700 bg-zinc-100 font-semibold text-zinc-950 shadow-lg shadow-black/20 hover:bg-white"
+                    size="cta"
+                    className="w-full border border-zinc-700 bg-zinc-100 text-zinc-950 shadow-lg shadow-black/20 hover:bg-white"
                     disabled={loading || cooldown > 0 || !!emailError}
                   >
                     {loading ? (
@@ -569,7 +606,7 @@ export function AuthPage() {
                       </div>
                       <Badge
                         variant="outline"
-                        className="border-amber-700/60 text-[10px] font-bold uppercase tracking-wide text-amber-300"
+                        className="border-amber-700/60 text-[10px] font-semibold text-amber-300"
                       >
                         Verification required
                       </Badge>
@@ -598,7 +635,8 @@ export function AuthPage() {
                   <Button
                     id="continue-otp-btn"
                     onClick={() => setStep("otp")}
-                    className="h-11 w-full gap-2 border border-zinc-700 bg-zinc-100 font-semibold text-zinc-950 hover:bg-white"
+                    size="cta"
+                    className="w-full border border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white"
                   >
                     <ShieldCheck className="size-4" />
                     Continue — Enter Code
@@ -606,8 +644,9 @@ export function AuthPage() {
 
                   <Button
                     variant="ghost"
+                    size="action"
                     onClick={goBack}
-                    className="w-full gap-1.5 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+                    className="w-full text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
                   >
                     <ArrowLeft className="size-4" /> Use a different email
                   </Button>
@@ -647,9 +686,19 @@ export function AuthPage() {
                     </div>
 
                     {!loading && !error && otp.length < 8 && (
-                      <p className="text-center text-xs text-zinc-500">
-                        Code auto-submits when all 8 digits are entered
-                      </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <p className="text-center text-xs text-zinc-500">
+                          Code auto-submits when all 8 digits are entered
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handlePasteFromClipboard}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                        >
+                          <ClipboardPaste className="size-3.5" />
+                          Paste
+                        </button>
+                      </div>
                     )}
 
                     {loading && (
@@ -675,10 +724,10 @@ export function AuthPage() {
                       <Button
                         id="resend-btn"
                         variant="ghost"
-                        size="sm"
+                        size="action"
                         onClick={handleResend}
                         disabled={loading || cooldown > 0}
-                        className="h-7 gap-1.5 px-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                        className="text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white"
                       >
                         {loading ? (
                           <>
@@ -711,12 +760,220 @@ export function AuthPage() {
 
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="action"
                     onClick={goBack}
                     disabled={loading}
-                    className="w-full gap-1.5 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+                    className="w-full text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
                   >
                     <ArrowLeft className="size-3.5" /> Back to email
+                  </Button>
+                </motion.div>
+              )}
+
+              {step === "admin" && (
+                <motion.div
+                  key="admin"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  className="flex flex-col gap-5"
+                >
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400">
+                      <ShieldCheck className="size-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-zinc-100">Admin Login</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">Enter your admin credentials</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleAdminLogin} className="flex flex-col gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="admin-email" className="text-xs font-medium text-zinc-400">
+                        Admin email
+                      </Label>
+                      <Input
+                        id="admin-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@example.com"
+                        className="h-11 border-zinc-700 bg-zinc-900/80 text-zinc-100 placeholder:text-zinc-600"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="admin-secret" className="text-xs font-medium text-zinc-400">
+                        Admin secret
+                      </Label>
+                      <Input
+                        id="admin-secret"
+                        type="password"
+                        value={adminSecret}
+                        onChange={(e) => setAdminSecret(e.target.value)}
+                        placeholder="Enter admin secret"
+                        className="h-11 border-zinc-700 bg-zinc-900/80 text-zinc-100 placeholder:text-zinc-600"
+                        required
+                      />
+                    </div>
+
+                    {error && (
+                      <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-800/50 bg-red-950/20 px-4 py-3 text-sm text-red-300">
+                        <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                        <span>{error}</span>
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      size="cta"
+                      className="w-full"
+                      disabled={adminLoading || !email.trim() || !adminSecret.trim()}
+                    >
+                      {adminLoading ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Authenticating...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="size-4" />
+                          Sign in as Admin
+                        </>
+                      )}
+                    </Button>
+                  </form>
+
+                  <div className="flex items-center justify-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="action"
+                      onClick={goBack}
+                      className="text-zinc-500 hover:text-zinc-200"
+                    >
+                      <ArrowLeft className="size-3.5" />
+                      Back to email
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="action"
+                      onClick={() => { setStep("reset"); setError(""); setResetSuccess(false); }}
+                      className="text-zinc-600 hover:text-zinc-400"
+                    >
+                      Reset password
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === "reset" && (
+                <motion.div
+                  key="reset"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  className="flex flex-col gap-5"
+                >
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+                      <Key className="size-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-zinc-100">Reset Password</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">Set a new password for the admin account</p>
+                    </div>
+                  </div>
+
+                  {resetSuccess ? (
+                    <div className="flex flex-col items-center gap-4 py-4">
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                      >
+                        <CheckCircle2 className="size-12 text-emerald-400" />
+                      </motion.div>
+                      <p className="text-sm font-bold text-zinc-200">Password updated!</p>
+                      <p className="text-xs text-zinc-500">You can now log in with your new password.</p>
+                      <Button
+                        size="cta"
+                        onClick={() => { setStep("admin"); setError(""); }}
+                        className="w-full"
+                      >
+                        Go to Admin Login
+                      </Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reset-secret" className="text-xs font-medium text-zinc-400">
+                          Current admin secret
+                        </Label>
+                        <Input
+                          id="reset-secret"
+                          type="password"
+                          value={adminSecret}
+                          onChange={(e) => setAdminSecret(e.target.value)}
+                          placeholder="Enter current secret"
+                          className="h-11 border-zinc-700 bg-zinc-900/80 text-zinc-100 placeholder:text-zinc-600"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new-password" className="text-xs font-medium text-zinc-400">
+                          New password
+                        </Label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password (min 6 chars)"
+                          className="h-11 border-zinc-700 bg-zinc-900/80 text-zinc-100 placeholder:text-zinc-600"
+                          minLength={6}
+                          required
+                        />
+                      </div>
+
+                      {error && (
+                        <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-800/50 bg-red-950/20 px-4 py-3 text-sm text-red-300">
+                          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                          <span>{error}</span>
+                        </div>
+                      )}
+
+                      <Button
+                        type="submit"
+                        size="cta"
+                        className="w-full"
+                        disabled={resetLoading || !adminSecret.trim() || newPassword.length < 6}
+                      >
+                        {resetLoading ? (
+                          <>
+                            <Loader2 className="size-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Key className="size-4" />
+                            Update Password
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  )}
+
+                  <Button
+                    variant="ghost"
+                    size="action"
+                    onClick={() => { setStep("admin"); setError(""); }}
+                    className="w-full text-zinc-500 hover:text-zinc-200"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                    Back to admin login
                   </Button>
                 </motion.div>
               )}
@@ -724,9 +981,18 @@ export function AuthPage() {
           </div>
         </FlowCard>
 
-        <p className="text-center text-xs text-zinc-600">
-          Secured with <span className="font-medium text-zinc-400">Supabase OTP</span> — no passwords stored, ever.
-        </p>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-center text-[11px] text-zinc-600 leading-relaxed">
+            By signing in, you agree to our{" "}
+            <button onClick={() => { window.location.href = '?terms'; }} className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2 transition-colors">
+              Terms & Conditions
+            </button>{" "}
+            and{" "}
+            <button onClick={() => { window.location.href = '?privacy'; }} className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2 transition-colors">
+              Privacy Policy
+            </button>.
+          </p>
+        </div>
       </div>
     </AuthShell>
   )

@@ -62,7 +62,11 @@ function UploadZone({
         type="file"
         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
         className="hidden"
-        onChange={(e) => onFileSelect(e.target.files, languageTag)}
+        onChange={(e) => {
+          onFileSelect(e.target.files, languageTag)
+          // Reset so re-selecting the same file triggers onChange
+          e.target.value = ''
+        }}
         disabled={isUploading}
       />
       

@@ -36,7 +36,7 @@ export function FlowStepIndicator({ steps, currentIndex, className }: FlowStepIn
             </motion.div>
             <span
               className={cn(
-                "text-[9px] font-semibold uppercase tracking-wider",
+                "text-[10px] sm:text-[11px] font-semibold tracking-wide whitespace-nowrap",
                 i === currentIndex ? "text-zinc-100" : i < currentIndex ? "text-emerald-400" : "text-zinc-600"
               )}
             >

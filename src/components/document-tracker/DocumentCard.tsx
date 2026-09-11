@@ -96,13 +96,13 @@ function DocumentCard({
     return (
       <Card
         className={cn(
-          "relative overflow-hidden border-border/50 bg-muted/20 opacity-70 grayscale-[0.5] transition-all",
+          "relative overflow-hidden border-amber-500/10 bg-muted/30 opacity-80 transition-all",
           className
         )}
       >
         <CardHeader className="pb-3">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground/50 shadow-inner">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400/60 shadow-inner">
               <Lock className="size-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -110,7 +110,7 @@ function DocumentCard({
                 {name}
               </CardTitle>
               <div className="mt-1 flex items-center gap-2">
-                <Badge variant="outline" className="text-xs font-medium opacity-50">
+                <Badge variant="outline" className="text-xs font-medium border-amber-500/20 text-amber-400/70">
                   Phase {phase}
                 </Badge>
                 <StatusBadge status="locked" className="scale-90 origin-left" />
@@ -119,9 +119,9 @@ function DocumentCard({
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex items-start gap-3 rounded-lg border border-destructive/10 bg-destructive/5 p-3">
-            <AlertCircle className="size-4 mt-0.5 text-destructive" />
-            <p className="text-xs font-medium leading-relaxed text-destructive/80">
+          <div className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+            <AlertCircle className="size-4 mt-0.5 text-amber-400" />
+            <p className="text-xs font-medium leading-relaxed text-amber-300/90">
               {lockReason}
             </p>
           </div>
@@ -134,8 +134,8 @@ function DocumentCard({
     <>
       <Card
         className={cn(
-          "group relative overflow-hidden border-border transition-all duration-300 hover:border-primary/20 hover:shadow-md active:scale-[0.99]",
-          isCompleted && "bg-primary/[0.02]",
+          "group relative overflow-hidden border-zinc-700/60 transition-all duration-300 hover:border-zinc-500/50 hover:shadow-md active:scale-[0.99]",
+          isCompleted && "border-emerald-500/20 bg-emerald-500/[0.02]",
           className
         )}
       >
@@ -165,10 +165,10 @@ function DocumentCard({
                       className="h-8 py-0 focus-visible:ring-primary/50"
                       autoFocus
                     />
-                    <Button size="icon" variant="ghost" className="size-8 text-emerald-500 hover:bg-emerald-500/10" onClick={handleSaveEdit}>
+                    <Button size="iconSm" variant="ghost" className="text-emerald-500 hover:bg-emerald-500/10" onClick={handleSaveEdit}>
                       <Check className="size-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="size-8 text-destructive hover:bg-destructive/10" onClick={handleCancelEdit}>
+                    <Button size="iconSm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={handleCancelEdit}>
                       <X className="size-4" />
                     </Button>
                   </div>
@@ -199,9 +199,9 @@ function DocumentCard({
               {!isEditing && onNameChange && (
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="iconSm"
                   onClick={() => setIsEditing(true)}
-                  className="size-8 hover:bg-primary/5 hover:text-primary"
+                  className="hover:bg-primary/5 hover:text-primary"
                 >
                   <Edit2 className="size-4" />
                 </Button>
@@ -209,13 +209,13 @@ function DocumentCard({
               {!isEditing && onDelete && !isMandatory && (
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="iconSm"
                   onClick={() => {
                     if (confirm("Delete this requirement?")) {
                       onDelete(id)
                     }
                   }}
-                  className="size-8 hover:bg-destructive/5 hover:text-destructive"
+                  className="hover:bg-destructive/5 hover:text-destructive"
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -227,15 +227,15 @@ function DocumentCard({
         <CardContent className="space-y-6 pt-0">
           {!isEditing && (
             <>
-              <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted/50 p-1 border border-border/50">
+              <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted/50 p-1 border border-border/50">
                 {(["pending", "in_progress", "completed"] as RequirementStatus[]).map((s) => (
                   <Button
                     key={s}
-                    size="sm"
+                    size="action"
                     variant="ghost"
                     onClick={() => onStatusChange(id, s)}
                     className={cn(
-                      "h-8 text-xs font-semibold capitalize transition-all",
+                      "text-xs capitalize",
                       status === s
                         ? "bg-background text-foreground shadow-sm ring-1 ring-border"
                         : "text-muted-foreground hover:bg-background/50 hover:text-foreground"

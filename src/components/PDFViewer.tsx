@@ -59,24 +59,23 @@ export function PDFViewer({ isOpen, onClose, fileId, fileName, languageTag }: PD
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <DialogTitle className="text-xl">{fileName}</DialogTitle>
-              {languageTag && (
-                <Badge variant={languageTag === 'English' ? 'default' : languageTag === 'Kinyarwanda' ? 'secondary' : 'outline'}>
-                  {languageTag}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleOpenExternal}>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Open in Drive
+      <DialogContent className="max-w-6xl w-[calc(100vw-2rem)] sm:w-[calc(100vw-3rem)] h-[85vh] sm:h-[90vh] flex flex-col p-4 sm:p-6">
+        <DialogHeader className="flex-shrink-0 space-y-3">
+          <DialogTitle className="text-lg sm:text-xl truncate pr-8">{fileName}</DialogTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            {languageTag && (
+              <Badge variant={languageTag === 'English' ? 'default' : languageTag === 'Kinyarwanda' ? 'secondary' : 'outline'}>
+                {languageTag}
+              </Badge>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              <Button variant="outline" size="action" onClick={handleOpenExternal} className="text-xs">
+                <ExternalLink className="size-3.5" />
+                <span className="hidden sm:inline">Open in Drive</span>
+                <span className="sm:hidden">Drive</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="action" onClick={handleDownload} className="text-xs">
+                <Download className="size-3.5" />
                 Download
               </Button>
             </div>

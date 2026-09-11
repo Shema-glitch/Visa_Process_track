@@ -67,7 +67,7 @@ function DocumentAttachment({
                 {languageLabel}
               </Badge>
               {isPendingSync && (
-                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-none text-[10px] h-4 px-1.5 font-bold">
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-none text-[10px] h-4 px-1.5 font-bold">
                   Sync pending
                 </Badge>
               )}
@@ -76,8 +76,8 @@ function DocumentAttachment({
         </div>
         <Button
           variant="ghost"
-          size="icon"
-          className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          size="iconSm"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           onClick={handleRemove}
           disabled={isRemoving}
         >
@@ -93,8 +93,8 @@ function DocumentAttachment({
       <div className="grid grid-cols-2 gap-2 mt-2">
         <Button
           variant="outline"
-          size="sm"
-          className="h-9 gap-2 text-xs"
+          size="action"
+          className="text-xs"
           onClick={() => onView(attachment)}
           disabled={isPendingSync}
         >
@@ -103,8 +103,8 @@ function DocumentAttachment({
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className="h-9 gap-2 text-xs"
+          size="action"
+          className="text-xs"
           onClick={() => onDownload(attachment)}
           disabled={isPendingSync}
         >

@@ -29,7 +29,7 @@ export interface IAttachmentRepository {
 export interface IDriveRepository {
   initiateAuth(): void;
   handleCallback(code: string): Promise<void>;
-  uploadFile(file: File, name: string): Promise<{ fileId: string }>;
+  uploadFile(file: File, name: string, phase?: number): Promise<{ fileId: string }>;
   getFileUrl(fileId: string): Promise<string>;
   isConnected(userId: string): Promise<boolean>;
   verifyConnection(): Promise<{ connected: boolean; folderId?: string }>;

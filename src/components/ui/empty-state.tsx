@@ -43,8 +43,9 @@ function EmptyState({
       {action && (
         <Button
           variant="outline"
+          size="cta"
           onClick={action.onClick}
-          className="mt-8 gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all active:scale-95"
+          className="mt-8 border-primary/20 hover:bg-primary/5 hover:text-primary active:scale-95"
         >
           {action.icon && <action.icon className="size-4" />}
           {action.label}
